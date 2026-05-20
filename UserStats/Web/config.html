@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>User Stats</title>
+</head>
+<body>
+<div id="UserStatsConfigPage"
+     data-role="page"
+     class="page type-interior pluginConfigurationPage"
+     data-require="emby-input,emby-button,emby-checkbox">
+
+    <div data-role="content">
+        <div class="content-primary">
+            <form id="UserStatsConfigForm">
+
+                <div class="sectionTitleContainer flex align-items-center">
+                    <h2 class="sectionTitle">User Stats — Configuration</h2>
+                </div>
+
+                <!-- ── Affichage ── -->
+                <div class="verticalSection">
+                    <h3 class="checkboxListLabel">Affichage</h3>
+
+                    <div class="checkboxContainer checkboxContainer-withDescription">
+                        <label class="emby-checkbox-label">
+                            <input id="chkShowOnProfile" type="checkbox" is="emby-checkbox" />
+                            <span>Carte stats sur les profils utilisateur</span>
+                        </label>
+                    </div>
+                    <div class="checkboxContainer checkboxContainer-withDescription">
+                        <label class="emby-checkbox-label">
+                            <input id="chkShowOnAdmin" type="checkbox" is="emby-checkbox" />
+                            <span>Badges dans la liste admin des utilisateurs</span>
+                        </label>
+                    </div>
+                    <div class="checkboxContainer checkboxContainer-withDescription">
+                        <label class="emby-checkbox-label">
+                            <input id="chkEnableLevels" type="checkbox" is="emby-checkbox" />
+                            <span>Système de niveaux XP</span>
+                        </label>
+                    </div>
+
+                    <div class="inputContainer" style="margin-top:1em">
+                        <label class="inputLabel inputLabelUnfocused" for="txtAccentColor">Couleur d'accent</label>
+                        <input id="txtAccentColor" type="color" is="emby-input"
+                               style="height:42px;padding:4px 8px;border-radius:6px;cursor:pointer;width:120px" />
+                    </div>
+                </div>
+
+                <!-- ── Formule du score ── -->
+                <div class="verticalSection" style="margin-top:2em">
+                    <h3 class="checkboxListLabel">Formule du score</h3>
+                    <p style="color:#aaa;font-size:13px;margin:4px 0 16px">
+                        Score = films × <b>X</b> + épisodes × <b>Y</b> + heures × <b>Z</b>
+                    </p>
+
+                    <div style="display:flex;gap:16px;flex-wrap:wrap">
+                        <div class="inputContainer" style="flex:1;min-width:140px">
+                            <label class="inputLabel inputLabelUnfocused" for="numPointsMovie">Points par film</label>
+                            <input id="numPointsMovie" type="number" is="emby-input" min="0" max="1000" step="1" />
+                        </div>
+                        <div class="inputContainer" style="flex:1;min-width:140px">
+                            <label class="inputLabel inputLabelUnfocused" for="numPointsEp">Points par épisode</label>
+                            <input id="numPointsEp" type="number" is="emby-input" min="0" max="1000" step="1" />
+                        </div>
+                        <div class="inputContainer" style="flex:1;min-width:140px">
+                            <label class="inputLabel inputLabelUnfocused" for="numPointsHour">Points par heure</label>
+                            <input id="numPointsHour" type="number" is="emby-input" min="0" max="1000" step="1" />
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ── Seuils des niveaux ── -->
+                <div class="verticalSection" style="margin-top:2em">
+                    <h3 class="checkboxListLabel">Seuils des niveaux</h3>
+                    <p style="color:#aaa;font-size:13px;margin:4px 0 16px">
+                        Niveau 1 (Spectateur) = 0 pt — toujours. Modifiez les seuils des niveaux 2 à 10.
+                    </p>
+
+                    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px">
+                        <div class="inputContainer">
+                            <label class="inputLabel inputLabelUnfocused">Niv. 2 — 🎬 Curieux</label>
+                            <input id="lvl2" type="number" is="emby-input" min="1" max="99999" step="1" />
+                        </div>
+                        <div class="inputContainer">
+                            <label class="inputLabel inputLabelUnfocused">Niv. 3 — 📺 Amateur</label>
+                            <input id="lvl3" type="number" is="emby-input" min="1" max="99999" step="1" />
+                        </div>
+                        <div class="inputContainer">
+                            <label class="inputLabel inputLabelUnfocused">Niv. 4 — ⭐ Cinéphile</label>
+                            <input id="lvl4" type="number" is="emby-input" min="1" max="99999" step="1" />
+                        </div>
+                        <div class="inputContainer">
+                            <label class="inputLabel inputLabelUnfocused">Niv. 5 — 🎭 Passionné</label>
+                            <input id="lvl5" type="number" is="emby-input" min="1" max="99999" step="1" />
+                        </div>
+                        <div class="inputContainer">
+                            <label class="inputLabel inputLabelUnfocused">Niv. 6 — 🔥 Acharné</label>
+                            <input id="lvl6" type="number" is="emby-input" min="1" max="99999" step="1" />
+                        </div>
+                        <div class="inputContainer">
+                            <label class="inputLabel inputLabelUnfocused">Niv. 7 — 🏆 Expert</label>
+                            <input id="lvl7" type="number" is="emby-input" min="1" max="99999" step="1" />
+                        </div>
+                        <div class="inputContainer">
+                            <label class="inputLabel inputLabelUnfocused">Niv. 8 — 💎 Maître</label>
+                            <input id="lvl8" type="number" is="emby-input" min="1" max="99999" step="1" />
+                        </div>
+                        <div class="inputContainer">
+                            <label class="inputLabel inputLabelUnfocused">Niv. 9 — 🌟 Élite</label>
+                            <input id="lvl9" type="number" is="emby-input" min="1" max="99999" step="1" />
+                        </div>
+                        <div class="inputContainer">
+                            <label class="inputLabel inputLabelUnfocused">Niv. 10 — 👑 Légende</label>
+                            <input id="lvl10" type="number" is="emby-input" min="1" max="99999" step="1" />
+                        </div>
+                    </div>
+
+                    <button type="button" id="btnReset"
+                            is="emby-button"
+                            style="margin-top:12px;font-size:12px"
+                            class="emby-button">
+                        Réinitialiser les valeurs par défaut
+                    </button>
+                </div>
+
+                <div style="margin-top:2em">
+                    <button is="emby-button" type="submit" class="raised button-submit block emby-button">
+                        <span>Enregistrer</span>
+                    </button>
+                </div>
+
+            </form>
+        </div>
+    </div>
+
+    <script type="text/javascript">
+        var PLUGIN_ID = 'a4f7e8c2-3b12-4d56-9870-1e23cf567890';
+
+        var DEFAULTS = {
+            ShowOnUserProfile: true, ShowOnAdminView: true,
+            EnableLevelSystem: true, AccentColor: '#00a4dc',
+            PointsPerMovie: 10, PointsPerEpisode: 3, PointsPerHour: 2,
+            Level2Score: 60,   Level3Score: 180,  Level4Score: 400,
+            Level5Score: 750,  Level6Score: 1200, Level7Score: 2000,
+            Level8Score: 3200, Level9Score: 5000, Level10Score: 8000
+        };
+
+        function fill(config) {
+            var c = Object.assign({}, DEFAULTS, config);
+            document.querySelector('#chkShowOnProfile').checked = c.ShowOnUserProfile !== false;
+            document.querySelector('#chkShowOnAdmin').checked   = c.ShowOnAdminView   !== false;
+            document.querySelector('#chkEnableLevels').checked  = c.EnableLevelSystem !== false;
+            document.querySelector('#txtAccentColor').value     = c.AccentColor || '#00a4dc';
+            document.querySelector('#numPointsMovie').value     = c.PointsPerMovie;
+            document.querySelector('#numPointsEp').value        = c.PointsPerEpisode;
+            document.querySelector('#numPointsHour').value      = c.PointsPerHour;
+            for (var i = 2; i <= 10; i++) {
+                document.querySelector('#lvl' + i).value = c['Level' + i + 'Score'];
+            }
+        }
+
+        function read(config) {
+            config.ShowOnUserProfile = document.querySelector('#chkShowOnProfile').checked;
+            config.ShowOnAdminView   = document.querySelector('#chkShowOnAdmin').checked;
+            config.EnableLevelSystem = document.querySelector('#chkEnableLevels').checked;
+            config.AccentColor       = document.querySelector('#txtAccentColor').value;
+            config.PointsPerMovie    = parseInt(document.querySelector('#numPointsMovie').value) || 10;
+            config.PointsPerEpisode  = parseInt(document.querySelector('#numPointsEp').value)    || 3;
+            config.PointsPerHour     = parseInt(document.querySelector('#numPointsHour').value)  || 2;
+            for (var i = 2; i <= 10; i++) {
+                config['Level' + i + 'Score'] = parseInt(document.querySelector('#lvl' + i).value) || DEFAULTS['Level' + i + 'Score'];
+            }
+            return config;
+        }
+
+        document.querySelector('#UserStatsConfigPage').addEventListener('pageshow', function () {
+            Dashboard.showLoadingMsg();
+            ApiClient.getPluginConfiguration(PLUGIN_ID).then(function (config) {
+                fill(config);
+                Dashboard.hideLoadingMsg();
+            });
+        });
+
+        document.querySelector('#btnReset').addEventListener('click', function () {
+            fill(DEFAULTS);
+        });
+
+        document.querySelector('#UserStatsConfigForm').addEventListener('submit', function (e) {
+            e.preventDefault();
+            Dashboard.showLoadingMsg();
+            ApiClient.getPluginConfiguration(PLUGIN_ID).then(function (config) {
+                ApiClient.updatePluginConfiguration(PLUGIN_ID, read(config)).then(function () {
+                    Dashboard.processPluginConfigurationUpdateResult();
+                });
+            });
+        });
+    </script>
+</div>
+</body>
+</html>

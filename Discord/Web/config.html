@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Discord Button</title>
+</head>
+<body>
+<div id="DiscordButtonConfigPage"
+     data-role="page"
+     class="page type-interior pluginConfigurationPage"
+     data-require="emby-input,emby-button,emby-checkbox">
+
+    <div data-role="content">
+        <div class="content-primary">
+            <form id="DiscordButtonConfigForm">
+
+                <div class="sectionTitleContainer flex align-items-center">
+                    <h2 class="sectionTitle">Discord Button — Configuration</h2>
+                </div>
+
+                <!-- ── Lien d'invitation ── -->
+                <div class="verticalSection">
+                    <h3 class="checkboxListLabel">Serveur Discord</h3>
+
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="txtInviteUrl">
+                            Lien d'invitation Discord
+                        </label>
+                        <input id="txtInviteUrl" type="url" is="emby-input"
+                               placeholder="https://discord.gg/XXXXXXXX" />
+                        <div class="fieldDescription">
+                            Lien d'invitation permanent de votre serveur Discord.
+                        </div>
+                    </div>
+
+                    <div class="inputContainer" style="margin-top:1em">
+                        <label class="inputLabel inputLabelUnfocused" for="txtTooltip">
+                            Texte du bouton (infobulle)
+                        </label>
+                        <input id="txtTooltip" type="text" is="emby-input"
+                               placeholder="Rejoindre notre Discord" />
+                    </div>
+                </div>
+
+                <!-- ── Options ── -->
+                <div class="verticalSection" style="margin-top:2em">
+                    <h3 class="checkboxListLabel">Options</h3>
+
+                    <div class="checkboxContainer checkboxContainer-withDescription">
+                        <label class="emby-checkbox-label">
+                            <input id="chkShowButton" type="checkbox" is="emby-checkbox" />
+                            <span>Afficher le bouton Discord</span>
+                        </label>
+                    </div>
+                    <div class="checkboxContainer checkboxContainer-withDescription">
+                        <label class="emby-checkbox-label">
+                            <input id="chkNewTab" type="checkbox" is="emby-checkbox" />
+                            <span>Ouvrir dans un nouvel onglet</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- ── Aperçu ── -->
+                <div class="verticalSection" style="margin-top:2em">
+                    <h3 class="checkboxListLabel">Aperçu du bouton</h3>
+                    <div style="display:flex;align-items:center;gap:12px;margin-top:8px">
+                        <div id="previewBtn" style="
+                            display:inline-flex;align-items:center;justify-content:center;
+                            width:36px;height:36px;border-radius:50%;
+                            background:#5865F2;color:#fff;cursor:default;flex-shrink:0">
+                            <svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 127.14 96.36'
+                                 fill='currentColor' width='20' height='20'>
+                                <path d='M107.7,8.07A105.15,105.15,0,0,0,81.47,0a72.06,72.06,0,0,0-3.36,6.83A97.68,97.68,0,0,0,49,6.83,72.37,72.37,0,0,0,45.64,0,105.89,105.89,0,0,0,19.39,8.09C2.79,32.65-1.71,56.6.54,80.21h0A105.73,105.73,0,0,0,32.71,96.36,77.7,77.7,0,0,0,39.6,85.25a68.42,68.42,0,0,1-10.85-5.18c.91-.66,1.8-1.34,2.66-2a75.57,75.57,0,0,0,64.32,0c.87.71,1.76,1.39,2.66,2a68.68,68.68,0,0,1-10.87,5.19,77,77,0,0,0,6.89,11.1A105.25,105.25,0,0,0,126.6,80.22h0C129.24,52.84,122.09,29.11,107.7,8.07ZM42.45,65.69C36.18,65.69,31,60,31,53s5-12.74,11.43-12.74S54,46,53.89,53,48.84,65.69,42.45,65.69Zm42.24,0C78.41,65.69,73.25,60,73.25,53s5-12.74,11.44-12.74S96.23,46,96.12,53,91.08,65.69,84.69,65.69Z'/>
+                            </svg>
+                        </div>
+                        <span id="previewLabel" style="color:#aaa;font-size:13px">Rejoindre notre Discord</span>
+                    </div>
+                    <p style="color:#666;font-size:12px;margin-top:8px">
+                        Le bouton apparaît dans le header Jellyfin, à gauche du bouton "Rejoindre un groupe".
+                    </p>
+                </div>
+
+                <div style="margin-top:2em">
+                    <button is="emby-button" type="submit" class="raised button-submit block emby-button">
+                        <span>Enregistrer</span>
+                    </button>
+                </div>
+
+            </form>
+        </div>
+    </div>
+
+    <script type="text/javascript">
+        var PLUGIN_ID = 'c3f19a72-5d84-4e6b-a017-3b9e21cf8401';
+
+        var DEFAULTS = {
+            DiscordInviteUrl: '',
+            ButtonTooltip:   'Rejoindre notre Discord',
+            OpenInNewTab:    true,
+            ShowButton:      true,
+        };
+
+        function fill(c) {
+            var cfg = Object.assign({}, DEFAULTS, c);
+            document.querySelector('#txtInviteUrl').value  = cfg.DiscordInviteUrl || '';
+            document.querySelector('#txtTooltip').value    = cfg.ButtonTooltip;
+            document.querySelector('#chkShowButton').checked = cfg.ShowButton !== false;
+            document.querySelector('#chkNewTab').checked     = cfg.OpenInNewTab !== false;
+            document.querySelector('#previewLabel').textContent = cfg.ButtonTooltip || 'Rejoindre notre Discord';
+        }
+
+        function read(config) {
+            config.DiscordInviteUrl = document.querySelector('#txtInviteUrl').value.trim();
+            config.ButtonTooltip   = document.querySelector('#txtTooltip').value.trim() || 'Rejoindre notre Discord';
+            config.ShowButton      = document.querySelector('#chkShowButton').checked;
+            config.OpenInNewTab    = document.querySelector('#chkNewTab').checked;
+            return config;
+        }
+
+        document.querySelector('#txtTooltip').addEventListener('input', function () {
+            document.querySelector('#previewLabel').textContent = this.value || 'Rejoindre notre Discord';
+        });
+
+        document.querySelector('#DiscordButtonConfigPage').addEventListener('pageshow', function () {
+            Dashboard.showLoadingMsg();
+            ApiClient.getPluginConfiguration(PLUGIN_ID).then(function (config) {
+                fill(config);
+                Dashboard.hideLoadingMsg();
+            });
+        });
+
+        document.querySelector('#DiscordButtonConfigForm').addEventListener('submit', function (e) {
+            e.preventDefault();
+            Dashboard.showLoadingMsg();
+            ApiClient.getPluginConfiguration(PLUGIN_ID).then(function (config) {
+                ApiClient.updatePluginConfiguration(PLUGIN_ID, read(config)).then(function () {
+                    Dashboard.processPluginConfigurationUpdateResult();
+                });
+            });
+        });
+    </script>
+</div>
+</body>
+</html>

@@ -1,0 +1,22 @@
+[
+  {
+    "guid": "a4f7e8c2-3b12-4d56-9870-1e23cf567890",
+    "name": "User Stats",
+    "description": "Affiche les statistiques de visionnage et un système de niveaux XP sur les profils Jellyfin.",
+    "overview": "Stats de visionnage + niveaux XP sur les profils utilisateur.",
+    "owner": "TysonZk",
+    "category": "General",
+    "imageUrl": "https://raw.githubusercontent.com/TysonZk/jellyfin-plugins/main/UserStats/Web/logo.png",
+    "versions": []
+  },
+  {
+    "guid": "c3f19a72-5d84-4e6b-a017-3b9e21cf8401",
+    "name": "Discord Button",
+    "description": "Ajoute un bouton Discord dans le header Jellyfin, à gauche du bouton Rejoindre un groupe.",
+    "overview": "Bouton d'invitation Discord dans le header Jellyfin.",
+    "owner": "TysonZk",
+    "category": "General",
+    "imageUrl": "https://raw.githubusercontent.com/TysonZk/jellyfin-plugins/main/Discord/Web/logo.png",
+    "versions": []
+  }
+]
