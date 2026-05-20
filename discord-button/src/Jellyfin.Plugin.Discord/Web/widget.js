@@ -13,4 +13,18 @@
   } else {
     window.addEventListener('load', show);
   }
+
+  // Hide button when video player is active
+  function updateVisibility() {
+    var inPlayer = !!document.querySelector('.videoPlayerContainer, .htmlVideoPlayer, video.videoPlayerContainer, .OSD');
+    btn.style.display = inPlayer ? 'none' : 'flex';
+  }
+
+  var _t = null;
+  var obs = new MutationObserver(function () {
+    clearTimeout(_t);
+    _t = setTimeout(updateVisibility, 100);
+  });
+  obs.observe(document.body, { childList: true, subtree: true });
+  updateVisibility();
 })();
