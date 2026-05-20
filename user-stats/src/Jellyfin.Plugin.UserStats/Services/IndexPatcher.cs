@@ -11,7 +11,8 @@ namespace Jellyfin.Plugin.UserStats.Services;
 /// </summary>
 public class IndexPatcher : IHostedService
 {
-    private const string LoaderTag = "<script defer=\"defer\" src=\"/JfStats/widget.js\"></script>";
+    private static string LoaderTag =>
+        $"<script defer=\"defer\" src=\"/JfStats/widget.js?v={Plugin.Instance?.Version?.ToString() ?? "1"}\"></script>";
 
     private readonly ILogger<IndexPatcher> _logger;
 
@@ -73,11 +74,12 @@ public class IndexPatcher : IHostedService
             return;
         }
 
-        if (content.Contains("/JfStats/widget.js", StringComparison.Ordinal))
-        {
-            _logger.LogInformation("[UserStats] index.html already patched — nothing to do.");
-            return;
-        }
+        // Remove any previous injection (any version) before re-injecting
+        content = System.Text.RegularExpressions.Regex.Replace(
+            content,
+            @"<script[^>]*/JfStats/widget\.js[^>]*></script>",
+            "",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase);
 
         if (!content.Contains("</body>", StringComparison.OrdinalIgnoreCase))
         {

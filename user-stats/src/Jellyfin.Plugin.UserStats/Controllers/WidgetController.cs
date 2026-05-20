@@ -29,8 +29,7 @@ public class WidgetController : ControllerBase
             return NotFound();
         }
 
-        // Cache 1h — mise à jour effective au redémarrage Jellyfin
-        Response.Headers["Cache-Control"] = "public, max-age=3600";
+        Response.Headers["Cache-Control"] = "no-cache, no-store, must-revalidate";
         return File(stream, "application/javascript");
     }
 }
