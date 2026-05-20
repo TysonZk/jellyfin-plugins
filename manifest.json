@@ -6,7 +6,7 @@
     "overview": "Stats de visionnage + niveaux XP sur les profils utilisateur.",
     "owner": "TysonZk",
     "category": "General",
-    "imageUrl": "https://raw.githubusercontent.com/TysonZk/jellyfin-plugins/main/UserStats/Web/logo.png",
+    "imageUrl": "https://raw.githubusercontent.com/TysonZk/jellyfin-plugins/main/user-stats/src/Jellyfin.Plugin.UserStats/Web/logo.png",
     "versions": []
   },
   {
@@ -16,7 +16,7 @@
     "overview": "Bouton d'invitation Discord dans le header Jellyfin.",
     "owner": "TysonZk",
     "category": "General",
-    "imageUrl": "https://raw.githubusercontent.com/TysonZk/jellyfin-plugins/main/Discord/Web/logo.png",
+    "imageUrl": "https://raw.githubusercontent.com/TysonZk/jellyfin-plugins/main/discord-button/src/Jellyfin.Plugin.Discord/Web/logo.png",
     "versions": [
       {
         "version": "1.0.0",
