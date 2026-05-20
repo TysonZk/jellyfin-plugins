@@ -10,8 +10,10 @@ namespace Jellyfin.Plugin.Discord;
 
 public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
 {
+    public static Plugin? Instance { get; private set; }
+
     public Plugin(IApplicationPaths appPaths, IXmlSerializer xmlSerializer)
-        : base(appPaths, xmlSerializer) { }
+        : base(appPaths, xmlSerializer) { Instance = this; }
 
     public override string Name => "Discord Button";
     public override Guid   Id   => Guid.Parse("c3f19a72-5d84-4e6b-a017-3b9e21cf8401");
