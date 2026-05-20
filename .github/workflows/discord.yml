@@ -6,7 +6,7 @@ on:
       - 'discord-v*'
   pull_request:
     paths:
-      - 'Discord/**'
+      - 'discord-button/**'
   workflow_dispatch:
 
 jobs:
@@ -20,12 +20,12 @@ jobs:
           dotnet-version: '8.0.x'
 
       - name: Build
-        run: dotnet build Discord/src/Jellyfin.Plugin.Discord/Jellyfin.Plugin.Discord.csproj -c Release
+        run: dotnet build discord-button/src/Jellyfin.Plugin.Discord/Jellyfin.Plugin.Discord.csproj -c Release
 
       - uses: actions/upload-artifact@v4
         with:
           name: Jellyfin.Plugin.Discord
-          path: Discord/src/Jellyfin.Plugin.Discord/bin/Release/net8.0/Jellyfin.Plugin.Discord.dll
+          path: discord-button/src/Jellyfin.Plugin.Discord/bin/Release/net8.0/Jellyfin.Plugin.Discord.dll
 
   release:
     if: startsWith(github.ref, 'refs/tags/discord-v')
@@ -49,12 +49,12 @@ jobs:
         run: echo "value=${GITHUB_REF#refs/tags/discord-v}" >> $GITHUB_OUTPUT
 
       - name: Build
-        run: dotnet build Discord/src/Jellyfin.Plugin.Discord/Jellyfin.Plugin.Discord.csproj -c Release
+        run: dotnet build discord-button/src/Jellyfin.Plugin.Discord/Jellyfin.Plugin.Discord.csproj -c Release
 
       - name: Create zip
         run: |
           mkdir -p dist
-          cp Discord/src/Jellyfin.Plugin.Discord/bin/Release/net8.0/Jellyfin.Plugin.Discord.dll dist/
+          cp discord-button/src/Jellyfin.Plugin.Discord/bin/Release/net8.0/Jellyfin.Plugin.Discord.dll dist/
           cd dist && zip Jellyfin.Plugin.Discord.zip Jellyfin.Plugin.Discord.dll
 
       - name: MD5
