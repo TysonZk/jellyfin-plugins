@@ -35,37 +35,58 @@
   }
 
   var _tries = 0;
+  var _injecting = false;
 
   function inject() {
     if (!cfg.show || !cfg.url) return;
     if (document.querySelector('.jf-seerr-section')) return;
+    if (_injecting) return;
 
-    var anchor = document.querySelector('h2.sectionTitle.headerUsername');
-    if (!anchor && _tries < 24) {
+    var header = document.querySelector('h2.sectionTitle.headerUsername');
+    if (!header && _tries < 24) {
       _tries++;
       setTimeout(inject, 250);
       return;
     }
+    if (!header) return;
 
-    var container = document.querySelector('.content-primary');
-    if (!container) return;
+    _injecting = true;
 
-    var sections = container.querySelectorAll('.verticalSection');
-    var last = sections.length ? sections[sections.length - 1] : null;
+    // Climb up from the h2 to find the main content container
+    var container = header.closest('.content-primary') ||
+                    header.parentNode.parentNode.parentNode;
+
+    if (!container) { _injecting = false; return; }
+
+    // Find the save button area to insert before it, or just append
+    var saveBtn = container.querySelector('button[type="submit"]');
     var sec = makeSection();
 
-    if (last) {
-      last.parentNode.insertBefore(sec, last.nextSibling);
+    if (saveBtn && saveBtn.parentNode && saveBtn.parentNode.parentNode === container) {
+      container.insertBefore(sec, saveBtn.parentNode);
+    } else if (saveBtn && saveBtn.parentNode) {
+      // saveBtn is deeper — insert the section before the nearest ancestor that is a direct child of container
+      var el = saveBtn;
+      while (el.parentNode && el.parentNode !== container) { el = el.parentNode; }
+      if (el.parentNode === container) {
+        container.insertBefore(sec, el);
+      } else {
+        container.appendChild(sec);
+      }
     } else {
       container.appendChild(sec);
     }
+
+    _injecting = false;
   }
 
   function check() {
     var h = window.location.hash;
     if (h.indexOf('/mypreferencesmenu') !== -1) {
-      _tries = 0;
-      inject();
+      if (!document.querySelector('.jf-seerr-section')) {
+        _tries = 0;
+        inject();
+      }
     } else {
       var el = document.querySelector('.jf-seerr-section');
       if (el) { el.remove(); }
