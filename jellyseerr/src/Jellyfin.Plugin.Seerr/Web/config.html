@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Jellyseerr</title>
+</head>
+<body>
+<div id="JellyseerrConfigPage"
+     data-role="page"
+     class="page type-interior pluginConfigurationPage"
+     data-require="emby-input,emby-button,emby-checkbox">
+
+    <div data-role="content">
+        <div class="content-primary">
+            <form id="JellyseerrConfigForm">
+
+                <div class="sectionTitleContainer flex align-items-center">
+                    <h2 class="sectionTitle">Jellyseerr — Configuration</h2>
+                </div>
+
+                <div class="verticalSection">
+
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="txtUrl">URL de Jellyseerr</label>
+                        <input id="txtUrl" type="url" is="emby-input" placeholder="https://seerr.example.com" />
+                        <div class="fieldDescription">URL publique de votre instance Jellyseerr.</div>
+                    </div>
+
+                    <div class="inputContainer" style="margin-top:1em">
+                        <label class="inputLabel inputLabelUnfocused" for="txtLabel">Libellé du bouton</label>
+                        <input id="txtLabel" type="text" is="emby-input" />
+                    </div>
+
+                    <div class="inputContainer" style="margin-top:1em">
+                        <label class="inputLabel inputLabelUnfocused" for="txtDesc">Description</label>
+                        <input id="txtDesc" type="text" is="emby-input" />
+                    </div>
+
+                    <div class="checkboxContainer checkboxContainer-withDescription" style="margin-top:1em">
+                        <label class="emby-checkbox-label">
+                            <input id="chkNewTab" type="checkbox" is="emby-checkbox" />
+                            <span>Ouvrir dans un nouvel onglet</span>
+                        </label>
+                    </div>
+
+                    <div class="checkboxContainer checkboxContainer-withDescription">
+                        <label class="emby-checkbox-label">
+                            <input id="chkShow" type="checkbox" is="emby-checkbox" />
+                            <span>Afficher la section dans les préférences</span>
+                        </label>
+                    </div>
+
+                </div>
+
+                <div style="margin-top:2em">
+                    <button is="emby-button" type="submit" class="raised button-submit block emby-button">
+                        <span>Enregistrer</span>
+                    </button>
+                </div>
+
+            </form>
+        </div>
+    </div>
+
+    <script type="text/javascript">
+        var PLUGIN_ID = 'b8f4e2d1-7c34-4a56-8901-2e3456789012';
+
+        var DEFAULTS = {
+            JellyseerrUrl: '',
+            ButtonLabel: 'Demandes',
+            Description: 'Demandez des films et séries à ajouter à la médiathèque.',
+            OpenInNewTab: true,
+            ShowSection: true
+        };
+
+        function fill(config) {
+            var c = Object.assign({}, DEFAULTS, config);
+            document.querySelector('#txtUrl').value      = c.JellyseerrUrl || '';
+            document.querySelector('#txtLabel').value    = c.ButtonLabel   || DEFAULTS.ButtonLabel;
+            document.querySelector('#txtDesc').value     = c.Description   || DEFAULTS.Description;
+            document.querySelector('#chkNewTab').checked = c.OpenInNewTab  !== false;
+            document.querySelector('#chkShow').checked   = c.ShowSection   !== false;
+        }
+
+        function read(config) {
+            config.JellyseerrUrl = document.querySelector('#txtUrl').value.trim();
+            config.ButtonLabel   = document.querySelector('#txtLabel').value.trim() || DEFAULTS.ButtonLabel;
+            config.Description   = document.querySelector('#txtDesc').value.trim()  || DEFAULTS.Description;
+            config.OpenInNewTab  = document.querySelector('#chkNewTab').checked;
+            config.ShowSection   = document.querySelector('#chkShow').checked;
+            return config;
+        }
+
+        document.querySelector('#JellyseerrConfigPage').addEventListener('pageshow', function () {
+            Dashboard.showLoadingMsg();
+            ApiClient.getPluginConfiguration(PLUGIN_ID).then(function (config) {
+                fill(config);
+                Dashboard.hideLoadingMsg();
+            });
+        });
+
+        document.querySelector('#JellyseerrConfigForm').addEventListener('submit', function (e) {
+            e.preventDefault();
+            Dashboard.showLoadingMsg();
+            ApiClient.getPluginConfiguration(PLUGIN_ID).then(function (config) {
+                ApiClient.updatePluginConfiguration(PLUGIN_ID, read(config)).then(function () {
+                    Dashboard.processPluginConfigurationUpdateResult();
+                });
+            });
+        });
+    </script>
+</div>
+</body>
+</html>

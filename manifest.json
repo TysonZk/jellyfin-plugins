@@ -10,6 +10,16 @@
     "versions": []
   },
   {
+    "guid": "b8f4e2d1-7c34-4a56-8901-2e3456789012",
+    "name": "Jellyseerr",
+    "description": "Ajoute un lien Jellyseerr dans les préférences utilisateur pour demander des films et séries.",
+    "overview": "Lien Jellyseerr dans les préférences utilisateur.",
+    "owner": "TysonZk",
+    "category": "General",
+    "imageUrl": "https://raw.githubusercontent.com/TysonZk/jellyfin-plugins/main/jellyseerr/src/Jellyfin.Plugin.Seerr/Web/logo.png",
+    "versions": []
+  },
+  {
     "guid": "c3f19a72-5d84-4e6b-a017-3b9e21cf8401",
     "name": "Discord Button",
     "description": "Ajoute un bouton Discord dans le header Jellyfin, à gauche du bouton Rejoindre un groupe.",
