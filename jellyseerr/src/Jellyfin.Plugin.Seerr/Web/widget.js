@@ -16,8 +16,9 @@
 
   function updateVisibility() {
     if (!cfg.show) { btn.style.display = 'none'; return; }
+    var onHome = window.location.hash === '#/home' || window.location.hash === '' || window.location.hash === '#';
     var inPlayer = !!document.querySelector('.videoPlayerContainer, .htmlVideoPlayer, .OSD');
-    btn.style.display = inPlayer ? 'none' : 'flex';
+    btn.style.display = (onHome && !inPlayer) ? 'flex' : 'none';
   }
 
   window.addEventListener('hashchange', updateVisibility);
