@@ -12,5 +12,6 @@ public class PluginServiceRegistrator : IPluginServiceRegistrator
     public void RegisterServices(IServiceCollection serviceCollection, IServerApplicationHost applicationHost)
     {
         serviceCollection.AddHostedService<IndexPatcher>();
+        serviceCollection.AddHostedService<UserDefaultsHandler>();
     }
 }
