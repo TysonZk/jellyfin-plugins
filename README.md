@@ -1,5 +1,7 @@
 # Jellyfin Plugins
 
+[![FR](https://img.shields.io/badge/Langue-Français-blue)](#plugins-disponibles) [![EN](https://img.shields.io/badge/Language-English-blue)](#available-plugins)
+
 ---
 
 ## Plugins disponibles
