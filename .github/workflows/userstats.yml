@@ -101,8 +101,8 @@ jobs:
 
       - name: Commit manifest
         run: |
-          git config user.name  "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name  "TysonZk"
+          git config user.email "nolan.dessirier@jeff-de-bruges.com"
           git add manifest.json
           git diff --staged --quiet || git commit -m "chore: manifest UserStats ${{ github.ref_name }}"
           git push origin HEAD:main
