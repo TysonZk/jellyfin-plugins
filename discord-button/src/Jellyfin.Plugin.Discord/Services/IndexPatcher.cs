@@ -21,7 +21,7 @@ public class IndexPatcher : IHostedService
         "position:fixed;top:14px;right:110px;z-index:10000;" +
         "width:24px;height:24px;border-radius:50%;" +
         "background:#5865F2;color:#fff;" +
-        "display:none;" +                          // widget.js l'active
+        "display:flex;" +
         "align-items:center;justify-content:center;" +
         "cursor:pointer;text-decoration:none;border:none;" +
         "box-shadow:0 1px 4px rgba(0,0,0,.5);";
