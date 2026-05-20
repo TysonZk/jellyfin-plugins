@@ -241,15 +241,6 @@
     return m ? m[1] : auth.userId;
   }
 
-  function injectUserProfile(cfg) {
-    tryInject(
-      function () { return document.querySelector('.readOnlyContent'); },
-      uidFromHash,
-      function (box, anchor) { anchor.parentNode.insertBefore(box, anchor.nextSibling); },
-      cfg, 16
-    );
-  }
-
   function injectSettingsMenu(cfg) {
     tryInject(
       function () { return document.querySelector('h2.sectionTitle.headerUsername'); },
@@ -289,8 +280,7 @@
     var h = window.location.hash;
     getConfig(function (cfg) {
       if (document.querySelector('.jf-stats-box')) return;
-      if      (cfg.ShowOnUserProfile && h.indexOf('/userprofile')     !== -1)                                      injectUserProfile(cfg);
-      else if (cfg.ShowOnUserProfile && h.indexOf('/mypreferencesmenu') !== -1)                                    injectSettingsMenu(cfg);
+      if      (cfg.ShowOnUserProfile && h.indexOf('/mypreferencesmenu') !== -1)                                    injectSettingsMenu(cfg);
       else if (cfg.ShowOnAdminView   && h.indexOf('/dashboard/users') !== -1 && h.indexOf('userId=') < 0)         injectUserList(cfg);
     });
   }
