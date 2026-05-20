@@ -14,11 +14,14 @@
     window.addEventListener('load', show);
   }
 
-  // Hide button when video player is active
+  // Show only on #/home and hide during video playback
   function updateVisibility() {
+    var onHome = window.location.hash === '#/home' || window.location.hash === '' || window.location.hash === '#';
     var inPlayer = !!document.querySelector('.videoPlayerContainer, .htmlVideoPlayer, video.videoPlayerContainer, .OSD');
-    btn.style.display = inPlayer ? 'none' : 'flex';
+    btn.style.display = (onHome && !inPlayer) ? 'flex' : 'none';
   }
+
+  window.addEventListener('hashchange', updateVisibility);
 
   var _t = null;
   var obs = new MutationObserver(function () {
