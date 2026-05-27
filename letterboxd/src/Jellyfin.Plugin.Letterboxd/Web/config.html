@@ -4,7 +4,7 @@
   <title>Letterboxd</title>
   <style>
     .lb-card {
-      max-width: 460px;
+      max-width: 500px;
       background: #141414;
       border-radius: 12px;
       padding: 28px 32px;
@@ -20,19 +20,32 @@
       gap: 10px;
     }
     .lb-desc { color: #888; font-size: 14px; margin: 0 0 20px; }
-    .lb-input {
+    .lb-steps {
+      background: #0e0e0e;
+      border-radius: 8px;
+      padding: 14px 16px;
+      font-size: 13px;
+      line-height: 1.8;
+      color: #bbb;
+      margin-bottom: 14px;
+    }
+    .lb-steps b { color: #fff; }
+    .lb-steps a { color: #00C030; }
+    .lb-accent { color: #00C030; font-weight: 700; }
+    .lb-textarea {
       display: block; width: 100%; box-sizing: border-box;
-      padding: 10px 12px; margin-bottom: 8px;
+      padding: 10px 12px; margin-bottom: 10px;
       border-radius: 7px; border: 1px solid #333;
-      background: #0e0e0e; color: #fff; font-size: 14px;
+      background: #0e0e0e; color: #fff; font-size: 12px;
+      font-family: monospace; resize: vertical;
     }
     .lb-btn {
       display: inline-block; padding: 10px 22px;
       border-radius: 7px; border: none; font-size: 15px;
-      font-weight: 600; cursor: pointer;
+      font-weight: 600; cursor: pointer; width: 100%;
     }
     .lb-btn-green  { background: #00C030; color: #fff; }
-    .lb-btn-danger { background: #c0392b; color: #fff; }
+    .lb-btn-danger { background: #c0392b; color: #fff; width: auto; }
     .lb-error   { color: #f55; font-size: 13px; margin: 10px 0 0; }
     .lb-success { color: #00C030; font-size: 14px; }
     .lb-username { color: #00C030; font-weight: 700; }
@@ -61,11 +74,20 @@
 
         <div id="lb-status" style="color:#888;font-size:14px">Vérification…</div>
 
-        <!-- Formulaire de connexion -->
+        <!-- Formulaire de connexion par cookie -->
         <div id="lb-connect-form" style="display:none">
-          <input class="lb-input" id="lb-email" type="text" placeholder="Nom d'utilisateur Letterboxd" />
-          <input class="lb-input" id="lb-password" type="password" placeholder="Mot de passe" />
-          <button class="lb-btn lb-btn-green" id="lb-connect-btn">Se connecter</button>
+          <div class="lb-steps">
+            <b style="display:block;margin-bottom:6px;">Comment obtenir ton cookie :</b>
+            <span class="lb-accent">1.</span> Ouvre <a href="https://letterboxd.com" target="_blank">letterboxd.com</a> et connecte-toi<br>
+            <span class="lb-accent">2.</span> Appuie sur <b>F12</b> → onglet <b>Réseau</b> (Network)<br>
+            <span class="lb-accent">3.</span> Actualise la page (<b>F5</b>)<br>
+            <span class="lb-accent">4.</span> Clique sur la 1<sup>re</sup> requête <b>letterboxd.com</b><br>
+            <span class="lb-accent">5.</span> Dans <b>En-têtes de requête</b>, copie la valeur de <b>cookie</b> :<br>
+            <span style="color:#777;font-size:12px;">→ clic-droit sur la valeur → « Copier la valeur »</span>
+          </div>
+          <textarea class="lb-textarea" id="lb-cookie" rows="4"
+            placeholder="Colle ici la valeur du cookie (com.xk72.webparts.csrf=…)"></textarea>
+          <button class="lb-btn lb-btn-green" id="lb-connect-btn">Valider</button>
           <p class="lb-error" id="lb-err"></p>
         </div>
 
@@ -108,36 +130,35 @@
   }
 
   document.getElementById('lb-connect-btn').addEventListener('click', function () {
-    var email = document.getElementById('lb-email').value.trim();
-    var pass  = document.getElementById('lb-password').value;
-    var err   = document.getElementById('lb-err');
-    var btn   = document.getElementById('lb-connect-btn');
-    if (!email) { err.textContent = "Nom d'utilisateur requis."; return; }
+    var cookie = document.getElementById('lb-cookie').value.trim();
+    var err    = document.getElementById('lb-err');
+    var btn    = document.getElementById('lb-connect-btn');
+    if (!cookie) { err.textContent = 'Colle le cookie avant de valider.'; return; }
     err.textContent = '';
     btn.disabled = true;
-    btn.textContent = 'Connexion…';
+    btn.textContent = 'Vérification…';
 
     fetch('/JfLetterboxd/connect', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId: userId, email: email, password: pass }),
+      body: JSON.stringify({ userId: userId, cookieString: cookie }),
     })
       .then(function (r) { return r.json(); })
       .then(function (res) {
         if (res.success) {
           document.getElementById('lb-connect-form').style.display = 'none';
-          document.getElementById('lb-username-display').textContent = res.username || email;
+          document.getElementById('lb-username-display').textContent = res.username || '?';
           document.getElementById('lb-connected').style.display = '';
         } else {
-          err.textContent = res.error || 'Identifiants incorrects.';
+          err.textContent = res.error || 'Cookie invalide ou session expirée.';
           btn.disabled = false;
-          btn.textContent = 'Se connecter';
+          btn.textContent = 'Valider';
         }
       })
       .catch(function () {
         err.textContent = 'Erreur réseau.';
         btn.disabled = false;
-        btn.textContent = 'Se connecter';
+        btn.textContent = 'Valider';
       });
   });
 
@@ -146,8 +167,7 @@
       .then(function () {
         document.getElementById('lb-connected').style.display = 'none';
         document.getElementById('lb-connect-form').style.display = '';
-        document.getElementById('lb-email').value = '';
-        document.getElementById('lb-password').value = '';
+        document.getElementById('lb-cookie').value = '';
       });
   });
 

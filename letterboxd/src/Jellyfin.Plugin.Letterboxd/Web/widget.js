@@ -169,62 +169,78 @@
       body.appendChild(discBtn);
 
     } else {
-      // ── Non connecté ─────────────────────────────────────────────────────
-      var desc = mkEl('p', { style: 'font-size:14px;color:#aaa;margin:0 0 18px;' });
-      desc.textContent = 'Connecte ton compte Letterboxd pour noter tes films à la fin de chaque visionnage.';
-      body.appendChild(desc);
-
-      var loginInp = formInput('text', 'Nom d\'utilisateur Letterboxd');
-      var passInp  = formInput('password', 'Mot de passe');
-      body.appendChild(loginInp);
-      body.appendChild(passInp);
-
-      var row = mkEl('div', { style: 'display:flex;align-items:center;gap:10px;margin-top:4px;' });
-      var btn = mkEl('button', { style: primaryBtn() });
-      btn.textContent = 'Se connecter';
-      var errSpan = mkEl('span', { style: 'color:#f55;font-size:13px;' });
-      row.appendChild(btn);
-      row.appendChild(errSpan);
-      body.appendChild(row);
-
-      function doLogin() {
-        var email = loginInp.value.trim();
-        var pass  = passInp.value;
-        if (!email) { errSpan.textContent = 'Nom d\'utilisateur requis.'; return; }
-        btn.disabled = true;
-        btn.textContent = 'Connexion…';
-        errSpan.textContent = '';
-
-        _origFetch('/JfLetterboxd/connect', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId: userId, email: email, password: pass }),
-        })
-          .then(function (r) { return r.json(); })
-          .then(function (res) {
-            if (res.success) {
-              renderModalBody(body, userId, true, res.username || email);
-              // Mettre à jour le texte de l'item si visible
-              var it = document.querySelector('.' + SENTINEL + ' .listItemBodyText');
-              if (it) it.textContent = 'Letterboxd · ' + (res.username || '');
-            } else {
-              errSpan.textContent = res.error || 'Identifiants incorrects.';
-              btn.disabled = false;
-              btn.textContent = 'Se connecter';
-            }
-          })
-          .catch(function () {
-            errSpan.textContent = 'Erreur réseau.';
-            btn.disabled = false;
-            btn.textContent = 'Se connecter';
-          });
-      }
-
-      btn.onclick = doLogin;
-      [loginInp, passInp].forEach(function (i) {
-        i.addEventListener('keydown', function (e) { if (e.key === 'Enter') doLogin(); });
+      // ── Non connecté — connexion par cookie ───────────────────────────────
+      renderCookieForm(body, userId, function (username) {
+        renderModalBody(body, userId, true, username);
+        var it = document.querySelector('.' + SENTINEL + ' .listItemBodyText');
+        if (it) it.textContent = 'Letterboxd · ' + username;
       });
     }
+  }
+
+  // ── Formulaire cookie partagé (settings + rating modal) ──────────────────
+  function renderCookieForm(container, userId, onSuccess) {
+    container.innerHTML = '';
+
+    var steps = mkEl('div', {
+      style: 'background:#111;border-radius:8px;padding:14px 16px;margin-bottom:16px;font-size:13px;line-height:1.7;color:#bbb;',
+    });
+    steps.innerHTML =
+      '<b style="color:#fff;display:block;margin-bottom:6px;">Comment obtenir ton cookie :</b>' +
+      '<span style="color:#00C030;font-weight:700;">1.</span> Ouvre <a href="https://letterboxd.com" target="_blank" style="color:#00C030;">letterboxd.com</a> et connecte-toi<br>' +
+      '<span style="color:#00C030;font-weight:700;">2.</span> Appuie sur <b>F12</b> → onglet <b>Réseau</b> (Network)<br>' +
+      '<span style="color:#00C030;font-weight:700;">3.</span> Actualise la page (<b>F5</b>)<br>' +
+      '<span style="color:#00C030;font-weight:700;">4.</span> Clique sur la 1<sup>re</sup> requête <b>letterboxd.com</b><br>' +
+      '<span style="color:#00C030;font-weight:700;">5.</span> Dans <b>En-têtes de requête</b>, copie la valeur de <b>cookie</b>:<br>' +
+      '<span style="color:#777;font-size:12px;">→ clic-droit sur la valeur → «&nbsp;Copier la valeur&nbsp;»</span>';
+
+    var ta = mkEl('textarea', {});
+    ta.placeholder = 'Colle ici la valeur du cookie (com.xk72.webparts.csrf=…)';
+    ta.rows = 4;
+    ta.style.cssText = [
+      'display:block', 'width:100%', 'box-sizing:border-box',
+      'padding:9px 12px', 'margin-bottom:10px',
+      'border-radius:6px', 'border:1px solid #333',
+      'background:#111', 'color:#fff', 'font-size:12px',
+      'resize:vertical', 'font-family:monospace',
+    ].join(';');
+
+    var btn = mkEl('button', { style: primaryBtn() });
+    btn.textContent = 'Valider';
+
+    var errSpan = mkEl('p', { style: 'color:#f55;font-size:13px;margin:8px 0 0;' });
+
+    function doConnect() {
+      var cookie = ta.value.trim();
+      if (!cookie) { errSpan.textContent = 'Colle le cookie avant de valider.'; return; }
+      btn.disabled = true;
+      btn.textContent = 'Vérification…';
+      errSpan.textContent = '';
+
+      _origFetch('/JfLetterboxd/connect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: userId, cookieString: cookie }),
+      })
+        .then(function (r) { return r.json(); })
+        .then(function (res) {
+          if (res.success) {
+            if (onSuccess) onSuccess(res.username || '?');
+          } else {
+            errSpan.textContent = res.error || 'Cookie invalide ou session expirée.';
+            btn.disabled = false;
+            btn.textContent = 'Valider';
+          }
+        })
+        .catch(function () {
+          errSpan.textContent = 'Erreur réseau.';
+          btn.disabled = false;
+          btn.textContent = 'Valider';
+        });
+    }
+
+    btn.onclick = doConnect;
+    [steps, ta, btn, errSpan].forEach(function (n) { container.appendChild(n); });
   }
 
   function closeModal() {
@@ -326,57 +342,21 @@
   }
 
   function buildRatingConnectUI(card, overlay, userId, item, tmdbId, imdbId) {
-    var desc = mkEl('p', { style: 'color:#bbb;font-size:14px;margin:0 0 16px' });
-    desc.textContent = 'Connecte ton compte Letterboxd pour noter ce film.';
+    var wrap = mkEl('div', { style: 'text-align:left;' });
+    card.appendChild(wrap);
 
-    var loginInp = formInput('text', 'Nom d\'utilisateur Letterboxd');
-    var passInp  = formInput('password', 'Mot de passe');
-    loginInp.style.marginBottom = '8px';
-    passInp.style.marginBottom  = '12px';
-
-    var btn = mkEl('button', { style: primaryBtn() });
-    btn.textContent = 'Se connecter';
+    renderCookieForm(wrap, userId, function (username) {
+      overlay.remove();
+      showRatingModal(userId, item, true, username);
+    });
 
     var skip = mkEl('button', {
       style: 'background:none;border:none;color:#666;font-size:13px;cursor:pointer;' +
-             'display:block;width:100%;margin-top:8px;',
+             'display:block;width:100%;margin-top:8px;text-align:center;',
     });
     skip.textContent = 'Passer';
     skip.onclick = function () { overlay.remove(); };
-
-    var err = mkEl('p', { style: 'color:#f55;font-size:13px;margin:10px 0 0;' });
-
-    function doLogin() {
-      var login = loginInp.value.trim();
-      var pass  = passInp.value;
-      if (!login) { err.textContent = 'Nom d\'utilisateur requis.'; return; }
-      btn.disabled = true; btn.textContent = 'Connexion…'; err.textContent = '';
-      _origFetch('/JfLetterboxd/connect', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: userId, email: login, password: pass }),
-      })
-        .then(function (r) { return r.json(); })
-        .then(function (res) {
-          if (res.success) {
-            overlay.remove();
-            showRatingModal(userId, item, true, res.username || login);
-          } else {
-            err.textContent = res.error || 'Identifiants incorrects.';
-            btn.disabled = false; btn.textContent = 'Se connecter';
-          }
-        })
-        .catch(function () {
-          err.textContent = 'Erreur réseau.';
-          btn.disabled = false; btn.textContent = 'Se connecter';
-        });
-    }
-    btn.onclick = doLogin;
-    [loginInp, passInp].forEach(function (i) {
-      i.addEventListener('keydown', function (e) { if (e.key === 'Enter') doLogin(); });
-    });
-
-    [desc, loginInp, passInp, btn, skip, err].forEach(function (n) { card.appendChild(n); });
+    card.appendChild(skip);
   }
 
   function buildStarRatingUI(card, overlay, userId, lbUser, tmdbId, imdbId, title, year) {

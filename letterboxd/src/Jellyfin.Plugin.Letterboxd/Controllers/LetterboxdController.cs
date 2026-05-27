@@ -9,15 +9,13 @@ namespace Jellyfin.Plugin.Letterboxd.Controllers;
 
 // ── Request bodies ────────────────────────────────────────────────────────────
 
-/// <summary>Corps de la requête de connexion Letterboxd.</summary>
+/// <summary>Corps de la requête de connexion Letterboxd par cookie navigateur.</summary>
 public sealed class ConnectRequest
 {
     /// <summary>ID utilisateur Jellyfin.</summary>
-    public string? UserId   { get; set; }
-    /// <summary>Email Letterboxd.</summary>
-    public string? Email    { get; set; }
-    /// <summary>Mot de passe Letterboxd.</summary>
-    public string? Password { get; set; }
+    public string? UserId       { get; set; }
+    /// <summary>Chaîne de cookies copiée depuis le navigateur (header Cookie).</summary>
+    public string? CookieString { get; set; }
 }
 
 /// <summary>Corps de la requête de journalisation d'un film.</summary>
@@ -85,20 +83,19 @@ public sealed class LetterboxdController : ControllerBase
 
     // ── Connexion ─────────────────────────────────────────────────────────────
 
-    /// <summary>Connecte un utilisateur Jellyfin à Letterboxd.</summary>
+    /// <summary>Connecte un utilisateur Jellyfin à Letterboxd via ses cookies navigateur.</summary>
     [HttpPost("connect")]
     public async Task<IActionResult> Connect([FromBody] ConnectRequest req)
     {
-        if (string.IsNullOrEmpty(req.UserId) || string.IsNullOrEmpty(req.Email))
-            return BadRequest(new { error = "userId et email requis" });
+        if (string.IsNullOrEmpty(req.UserId) || string.IsNullOrEmpty(req.CookieString))
+            return BadRequest(new { error = "userId et cookieString requis" });
 
-        var (ok, err) = await _lb.LoginAsync(req.UserId, req.Email, req.Password ?? string.Empty)
+        var (ok, err, username) = await _lb.ConnectWithCookiesAsync(req.UserId, req.CookieString)
             .ConfigureAwait(false);
 
         if (!ok) return BadRequest(new { error = err });
 
-        var session = _lb.GetSession(req.UserId);
-        return Ok(new { success = true, username = session?.LetterboxdUsername ?? req.Email });
+        return Ok(new { success = true, username = username ?? string.Empty });
     }
 
     // ── Déconnexion ───────────────────────────────────────────────────────────
