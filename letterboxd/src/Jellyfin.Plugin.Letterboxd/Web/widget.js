@@ -1,11 +1,11 @@
 (function () {
   'use strict';
 
-  var PREFS_CLASS  = 'jf-lb-prefs';   // sentinelle section préférences
-  var MODAL_ID     = 'jf-lb-modal';   // id modal notation
-  var _origFetch   = window.fetch.bind(window);
+  var SENTINEL   = 'jf-lb-prefs';   // classe sur l'item injecté
+  var MODAL_ID   = 'jf-lb-modal';
+  var _origFetch = window.fetch.bind(window);
 
-  // ── Auth (même pattern que user-stats) ───────────────────────────────────
+  // ── Auth (même helper que user-stats) ────────────────────────────────────
   function getAuth() {
     try {
       if (window.ApiClient) {
@@ -23,186 +23,227 @@
     return null;
   }
 
-  // ── Section /mypreferencesmenu ────────────────────────────────────────────
+  // ── Injection de l'item dans /mypreferencesmenu ───────────────────────────
+  function injectMenuItem() {
+    if (document.querySelector('.' + SENTINEL)) return; // déjà là
 
-  function injectPrefsSection() {
-    if (document.querySelector('.' + PREFS_CLASS)) return; // déjà injecté
-
-    var anchor = document.querySelector('h2.sectionTitle.headerUsername');
-    if (!anchor) {
-      setTimeout(injectPrefsSection, 250);
-      return;
-    }
+    // Attendre qu'un item natif soit rendu (ex: lien "Affichage")
+    var knownItem = document.querySelector(
+      '.lnkDisplayPreferences, .lnkUserProfile, .lnkHomePreferences'
+    );
+    if (!knownItem) { setTimeout(injectMenuItem, 250); return; }
 
     var auth = getAuth();
-    if (!auth) { setTimeout(injectPrefsSection, 250); return; }
+    if (!auth) { setTimeout(injectMenuItem, 250); return; }
 
-    var userId = auth.userId;
+    var container = knownItem.parentNode;
+    if (!container) return;
 
-    _origFetch('/JfLetterboxd/status?userId=' + userId)
-      .then(function (r) { return r.json(); })
-      .then(function (status) {
-        if (document.querySelector('.' + PREFS_CLASS)) return;
-        var section = buildPrefsSection(userId, status.connected, status.username || '');
-        anchor.parentNode.insertBefore(section, anchor.nextSibling);
-      })
-      .catch(function () {});
+    // Créer l'item — copie exacte du style Jellyfin
+    var a = document.createElement('a');
+    a.className = SENTINEL + ' listItem-border';
+    a.href = '#';
+    a.style.cssText = 'display:block;margin:0;padding:0;';
+    a.innerHTML =
+      '<div class="listItem">' +
+        '<span class="material-icons listItemIcon listItemIcon-transparent" aria-hidden="true">' +
+          'movie' +
+        '</span>' +
+        '<div class="listItemBody">' +
+          '<div class="listItemBodyText">Letterboxd</div>' +
+        '</div>' +
+      '</div>';
+
+    a.addEventListener('click', function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      openSettingsModal(auth.userId);
+    });
+
+    container.appendChild(a);
   }
 
-  function buildPrefsSection(userId, connected, lbUser) {
-    var wrap = document.createElement('div');
-    wrap.className = PREFS_CLASS;
-    wrap.style.cssText = 'margin:16px 0 4px;';
+  // ── Modale paramètres Letterboxd ─────────────────────────────────────────
+  function openSettingsModal(userId) {
+    closeModal();
 
-    // Titre (style Jellyfin)
-    var titleRow = document.createElement('div');
-    titleRow.style.cssText = 'display:flex;align-items:center;gap:8px;margin:0 0 12px;';
+    var overlay = mkEl('div', {
+      id: MODAL_ID,
+      style: [
+        'position:fixed', 'inset:0', 'z-index:99998',
+        'background:rgba(0,0,0,.75)',
+        'display:flex', 'align-items:center', 'justify-content:center',
+      ].join(';'),
+    });
 
-    var logoSvg = document.createElement('span');
-    logoSvg.innerHTML =
-      '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 100 100">' +
+    overlay.addEventListener('click', function (e) {
+      if (e.target === overlay) closeModal();
+    });
+
+    var card = mkEl('div', {
+      style: [
+        'background:#1c1c1c', 'border-radius:10px',
+        'padding:28px 32px', 'width:360px', 'max-width:92vw',
+        'position:relative', 'color:#fff', 'font-family:inherit',
+      ].join(';'),
+    });
+
+    // Header
+    var hdr = mkEl('div', {
+      style: 'display:flex;align-items:center;gap:10px;margin-bottom:20px;',
+    });
+    hdr.innerHTML =
+      '<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 100 100">' +
         '<circle cx="50" cy="50" r="50" fill="#00C030"/>' +
         '<text x="50" y="67" text-anchor="middle" font-family="serif" ' +
               'font-size="52" font-weight="bold" fill="white">L</text>' +
-      '</svg>';
+      '</svg>' +
+      '<span style="font-size:18px;font-weight:700;">Letterboxd</span>';
 
-    var title = document.createElement('h2');
-    title.className = 'sectionTitle';
-    title.style.cssText = 'margin:0;';
-    title.textContent = 'Letterboxd';
+    var closeBtn = mkEl('button', {
+      style: 'position:absolute;top:14px;right:16px;background:none;border:none;' +
+             'color:#666;font-size:20px;cursor:pointer;line-height:1;padding:0;',
+    });
+    closeBtn.textContent = '✕';
+    closeBtn.onclick = closeModal;
 
-    titleRow.appendChild(logoSvg);
-    titleRow.appendChild(title);
-    wrap.appendChild(titleRow);
+    card.appendChild(closeBtn);
+    card.appendChild(hdr);
 
-    // Corps
-    var body = document.createElement('div');
-    body.style.cssText = [
-      'background:#1a1a1a', 'border-radius:8px', 'padding:16px 20px',
-      'max-width:480px',
-    ].join(';');
+    var body = mkEl('div');
+    card.appendChild(body);
+    overlay.appendChild(card);
+    document.body.appendChild(overlay);
+
+    // Charger le statut
+    _origFetch('/JfLetterboxd/status?userId=' + userId)
+      .then(function (r) { return r.json(); })
+      .then(function (s) {
+        renderModalBody(body, userId, s.connected, s.username || '');
+      })
+      .catch(function () {
+        body.innerHTML = '<p style="color:#f55;font-size:14px">Erreur de connexion au plugin.</p>';
+      });
+  }
+
+  function renderModalBody(body, userId, connected, lbUser) {
+    body.innerHTML = '';
 
     if (connected) {
-      renderConnected(body, userId, lbUser, wrap);
+      // ── Connecté ──────────────────────────────────────────────────────────
+      var infoDiv = mkEl('div', {
+        style: 'display:flex;align-items:center;gap:10px;margin-bottom:20px;',
+      });
+      var badge = mkEl('span', {
+        style: 'background:#00C030;color:#fff;border-radius:50%;width:36px;height:36px;' +
+               'display:flex;align-items:center;justify-content:center;font-size:18px;' +
+               'font-weight:700;flex-shrink:0;',
+      });
+      badge.textContent = lbUser.charAt(0).toUpperCase();
+
+      var nameCol = mkEl('div');
+      var label = mkEl('div', { style: 'font-size:12px;color:#888;' });
+      label.textContent = 'Compte connecté';
+      var name = mkEl('div', { style: 'font-size:16px;font-weight:600;color:#fff;' });
+      name.textContent = lbUser;
+      nameCol.appendChild(label);
+      nameCol.appendChild(name);
+      infoDiv.appendChild(badge);
+      infoDiv.appendChild(nameCol);
+
+      var hint = mkEl('p', { style: 'font-size:13px;color:#777;margin:0 0 20px;' });
+      hint.textContent = 'Une fenêtre de notation apparaîtra automatiquement à la fin de chaque film.';
+
+      var discBtn = mkEl('button', { style: dangerBtn() });
+      discBtn.textContent = 'Déconnecter';
+      discBtn.onclick = function () {
+        discBtn.disabled = true;
+        discBtn.textContent = 'Déconnexion…';
+        _origFetch('/JfLetterboxd/disconnect?userId=' + userId, { method: 'DELETE' })
+          .then(function () { renderModalBody(body, userId, false, ''); })
+          .catch(function () { discBtn.disabled = false; discBtn.textContent = 'Déconnecter'; });
+      };
+
+      body.appendChild(infoDiv);
+      body.appendChild(hint);
+      body.appendChild(discBtn);
+
     } else {
-      renderConnectForm(body, userId, wrap);
-    }
+      // ── Non connecté ─────────────────────────────────────────────────────
+      var desc = mkEl('p', { style: 'font-size:14px;color:#aaa;margin:0 0 18px;' });
+      desc.textContent = 'Connecte ton compte Letterboxd pour noter tes films à la fin de chaque visionnage.';
+      body.appendChild(desc);
 
-    wrap.appendChild(body);
-    return wrap;
-  }
+      var emailInp = formInput('email', 'Email Letterboxd');
+      var passInp  = formInput('password', 'Mot de passe');
+      body.appendChild(emailInp);
+      body.appendChild(passInp);
 
-  function renderConnected(body, userId, lbUser, wrap) {
-    body.innerHTML = '';
+      var row = mkEl('div', { style: 'display:flex;align-items:center;gap:10px;margin-top:4px;' });
+      var btn = mkEl('button', { style: primaryBtn() });
+      btn.textContent = 'Se connecter';
+      var errSpan = mkEl('span', { style: 'color:#f55;font-size:13px;' });
+      row.appendChild(btn);
+      row.appendChild(errSpan);
+      body.appendChild(row);
 
-    var row = document.createElement('div');
-    row.style.cssText = 'display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;';
+      function doLogin() {
+        var email = emailInp.value.trim();
+        var pass  = passInp.value;
+        if (!email) { errSpan.textContent = 'Email requis.'; return; }
+        btn.disabled = true;
+        btn.textContent = 'Connexion…';
+        errSpan.textContent = '';
 
-    var info = document.createElement('span');
-    info.style.cssText = 'color:#ccc;font-size:14px;';
-    info.innerHTML = 'Connecté en tant que <strong style="color:#00C030">' + esc(lbUser) + '</strong>';
-
-    var discBtn = document.createElement('button');
-    discBtn.className = 'raised button-submit';
-    discBtn.style.cssText = 'background:#c0392b;color:#fff;border:none;padding:7px 16px;' +
-                            'border-radius:4px;cursor:pointer;font-size:13px;';
-    discBtn.textContent = 'Déconnecter';
-    discBtn.onclick = function () {
-      _origFetch('/JfLetterboxd/disconnect?userId=' + userId, { method: 'DELETE' })
-        .then(function () {
-          // Retirer la section et la réinjecter (désconnecté)
-          wrap.remove();
-          setTimeout(injectPrefsSection, 100);
+        _origFetch('/JfLetterboxd/connect', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: userId, email: email, password: pass }),
         })
-        .catch(function () {});
-    };
+          .then(function (r) { return r.json(); })
+          .then(function (res) {
+            if (res.success) {
+              renderModalBody(body, userId, true, res.username || email.split('@')[0]);
+              // Mettre à jour le texte de l'item si visible
+              var it = document.querySelector('.' + SENTINEL + ' .listItemBodyText');
+              if (it) it.textContent = 'Letterboxd · ' + (res.username || '');
+            } else {
+              errSpan.textContent = res.error || 'Identifiants incorrects.';
+              btn.disabled = false;
+              btn.textContent = 'Se connecter';
+            }
+          })
+          .catch(function () {
+            errSpan.textContent = 'Erreur réseau.';
+            btn.disabled = false;
+            btn.textContent = 'Se connecter';
+          });
+      }
 
-    row.appendChild(info);
-    row.appendChild(discBtn);
-    body.appendChild(row);
-
-    var hint = document.createElement('p');
-    hint.style.cssText = 'color:#666;font-size:12px;margin:10px 0 0;';
-    hint.textContent = 'Une fenêtre de notation apparaîtra automatiquement à la fin de chaque film.';
-    body.appendChild(hint);
-  }
-
-  function renderConnectForm(body, userId, wrap) {
-    body.innerHTML = '';
-
-    var desc = document.createElement('p');
-    desc.style.cssText = 'color:#aaa;font-size:13px;margin:0 0 14px;';
-    desc.textContent = 'Connecte ton compte pour noter tes films sur Letterboxd à la fin de chaque visionnage.';
-    body.appendChild(desc);
-
-    var emailInp = inp('email', 'Email Letterboxd');
-    var passInp  = inp('password', 'Mot de passe');
-    body.appendChild(emailInp);
-    body.appendChild(passInp);
-
-    var btnRow = document.createElement('div');
-    btnRow.style.cssText = 'display:flex;align-items:center;gap:10px;margin-top:4px;';
-
-    var connectBtn = document.createElement('button');
-    connectBtn.className = 'raised button-submit';
-    connectBtn.style.cssText = 'background:#00C030;color:#fff;border:none;padding:8px 20px;' +
-                               'border-radius:4px;cursor:pointer;font-size:14px;font-weight:600;';
-    connectBtn.textContent = 'Se connecter';
-
-    var errSpan = document.createElement('span');
-    errSpan.style.cssText = 'color:#f55;font-size:13px;';
-
-    btnRow.appendChild(connectBtn);
-    btnRow.appendChild(errSpan);
-    body.appendChild(btnRow);
-
-    function doConnect() {
-      var email = emailInp.value.trim();
-      var pass  = passInp.value;
-      if (!email) { errSpan.textContent = 'Email requis.'; return; }
-      errSpan.textContent = '';
-      connectBtn.disabled = true;
-      connectBtn.textContent = 'Connexion…';
-
-      _origFetch('/JfLetterboxd/connect', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: userId, email: email, password: pass }),
-      })
-        .then(function (r) { return r.json(); })
-        .then(function (res) {
-          if (res.success) {
-            renderConnected(body, userId, res.username || email.split('@')[0], wrap);
-          } else {
-            errSpan.textContent = res.error || 'Identifiants incorrects.';
-            connectBtn.disabled = false;
-            connectBtn.textContent = 'Se connecter';
-          }
-        })
-        .catch(function () {
-          errSpan.textContent = 'Erreur réseau.';
-          connectBtn.disabled = false;
-          connectBtn.textContent = 'Se connecter';
-        });
+      btn.onclick = doLogin;
+      [emailInp, passInp].forEach(function (i) {
+        i.addEventListener('keydown', function (e) { if (e.key === 'Enter') doLogin(); });
+      });
     }
-
-    connectBtn.onclick = doConnect;
-    [emailInp, passInp].forEach(function (i) {
-      i.addEventListener('keydown', function (e) { if (e.key === 'Enter') doConnect(); });
-    });
   }
 
-  // ── Modal notation (fin de film) ──────────────────────────────────────────
+  function closeModal() {
+    var m = document.getElementById(MODAL_ID);
+    if (m) m.remove();
+  }
 
-  // Intercepte fetch pour détecter la fin d'un film
+  // ── Modal de notation fin de film ─────────────────────────────────────────
+
+  // Wrapper fetch pour détecter la fin d'un film
   window.fetch = function (url, options) {
     var p = _origFetch(url, options);
     try {
       if (typeof url === 'string' && options && (options.method || '').toUpperCase() === 'POST') {
         var m = url.match(/\/Users\/([^/?#]+)\/PlayedItems\/([^/?#]+)/);
         if (m) {
-          var uid = m[1], itemId = m[2];
-          p.then(function () { onItemPlayed(uid, itemId); }).catch(function () {});
+          (function (uid, itemId) {
+            p.then(function () { onItemPlayed(uid, itemId); }).catch(function () {});
+          })(m[1], m[2]);
         }
       }
     } catch (_) {}
@@ -218,7 +259,7 @@
           .then(function (r) { return r.json(); })
           .then(function (s) {
             setTimeout(function () {
-              showModal(userId, item, s.connected, s.username || '');
+              showRatingModal(userId, item, s.connected, s.username || '');
             }, 1200);
           })
           .catch(function () {});
@@ -226,7 +267,7 @@
       .catch(function () {});
   }
 
-  function showModal(userId, item, connected, lbUser) {
+  function showRatingModal(userId, item, connected, lbUser) {
     if (document.getElementById(MODAL_ID)) return;
 
     var title  = item.Name || 'Film';
@@ -234,83 +275,82 @@
     var tmdbId = (item.ProviderIds && item.ProviderIds.Tmdb) || '';
     var imdbId = (item.ProviderIds && item.ProviderIds.Imdb) || '';
 
-    var overlay = el('div', {
+    var overlay = mkEl('div', {
       id: MODAL_ID,
-      style: 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.82);' +
-             'display:flex;align-items:center;justify-content:center;font-family:sans-serif;',
+      style: 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.8);' +
+             'display:flex;align-items:center;justify-content:center;font-family:inherit;',
+    });
+    overlay.addEventListener('click', function (e) {
+      if (e.target === overlay) overlay.remove();
     });
 
-    var card = el('div', {
-      style: 'background:#141414;border-radius:14px;padding:28px 32px;' +
-             'max-width:400px;width:92%;text-align:center;' +
-             'box-shadow:0 24px 64px rgba(0,0,0,.9);position:relative;color:#fff;',
+    var card = mkEl('div', {
+      style: 'background:#1c1c1c;border-radius:12px;padding:28px 32px;' +
+             'max-width:380px;width:92%;text-align:center;' +
+             'box-shadow:0 20px 60px rgba(0,0,0,.8);position:relative;color:#fff;',
     });
 
-    var closeBtn = el('button', {
+    var xBtn = mkEl('button', {
       style: 'position:absolute;top:12px;right:14px;background:none;border:none;' +
-             'color:#666;font-size:20px;cursor:pointer;line-height:1;',
+             'color:#666;font-size:20px;cursor:pointer;line-height:1;padding:0;',
     });
-    closeBtn.textContent = '✕';
-    closeBtn.onclick = function () { overlay.remove(); };
+    xBtn.textContent = '✕';
+    xBtn.onclick = function () { overlay.remove(); };
 
-    var logoWrap = el('div', { style: 'margin-bottom:14px' });
+    var logoWrap = mkEl('div', { style: 'margin-bottom:12px' });
     logoWrap.innerHTML =
-      '<svg xmlns="http://www.w3.org/2000/svg" width="44" height="44" viewBox="0 0 100 100">' +
+      '<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 100 100">' +
         '<circle cx="50" cy="50" r="50" fill="#00C030"/>' +
         '<text x="50" y="67" text-anchor="middle" font-family="serif" ' +
               'font-size="52" font-weight="bold" fill="white">L</text>' +
       '</svg>';
 
-    var h = el('h3', { style: 'margin:0 0 2px;font-size:17px;font-weight:700;color:#fff' });
-    h.textContent = title;
-    var sub = el('p', { style: 'margin:0 0 20px;font-size:13px;color:#888' });
+    var htitle = mkEl('h3', { style: 'margin:0 0 2px;font-size:17px;font-weight:700;' });
+    htitle.textContent = title;
+    var sub = mkEl('p', { style: 'margin:0 0 18px;font-size:13px;color:#888;' });
     sub.textContent = year ? String(year) : '';
 
-    card.appendChild(closeBtn);
+    card.appendChild(xBtn);
     card.appendChild(logoWrap);
-    card.appendChild(h);
+    card.appendChild(htitle);
     card.appendChild(sub);
 
     if (!connected) {
-      buildModalConnectUI(card, overlay, userId, item, tmdbId, imdbId);
+      buildRatingConnectUI(card, overlay, userId, item, tmdbId, imdbId);
     } else {
-      buildModalRatingUI(card, overlay, userId, lbUser, tmdbId, imdbId, title, year);
+      buildStarRatingUI(card, overlay, userId, lbUser, tmdbId, imdbId, title, year);
     }
 
     overlay.appendChild(card);
-    overlay.addEventListener('click', function (e) {
-      if (e.target === overlay) overlay.remove();
-    });
     document.body.appendChild(overlay);
   }
 
-  function buildModalConnectUI(card, overlay, userId, item, tmdbId, imdbId) {
-    var desc = el('p', { style: 'color:#bbb;font-size:14px;margin:0 0 16px' });
+  function buildRatingConnectUI(card, overlay, userId, item, tmdbId, imdbId) {
+    var desc = mkEl('p', { style: 'color:#bbb;font-size:14px;margin:0 0 16px' });
     desc.textContent = 'Connecte ton compte Letterboxd pour noter ce film.';
 
-    var emailInp = inp('email', 'Email Letterboxd');
-    var passInp  = inp('password', 'Mot de passe');
-    emailInp.style.cssText += 'margin-bottom:8px;';
-    passInp.style.cssText  += 'margin-bottom:14px;';
+    var emailInp = formInput('email', 'Email');
+    var passInp  = formInput('password', 'Mot de passe');
+    emailInp.style.marginBottom = '8px';
+    passInp.style.marginBottom  = '12px';
 
-    var connectBtn = el('button', { style: btnStyle('#00C030') });
-    connectBtn.textContent = 'Se connecter';
-    var skipBtn = el('button', {
+    var btn = mkEl('button', { style: primaryBtn() });
+    btn.textContent = 'Se connecter';
+
+    var skip = mkEl('button', {
       style: 'background:none;border:none;color:#666;font-size:13px;cursor:pointer;' +
-             'margin-top:6px;display:block;width:100%;',
+             'display:block;width:100%;margin-top:8px;',
     });
-    skipBtn.textContent = 'Passer';
-    skipBtn.onclick = function () { overlay.remove(); };
-    var errTxt = el('p', { style: 'color:#f55;font-size:13px;margin:10px 0 0' });
+    skip.textContent = 'Passer';
+    skip.onclick = function () { overlay.remove(); };
 
-    function doConnect() {
+    var err = mkEl('p', { style: 'color:#f55;font-size:13px;margin:10px 0 0;' });
+
+    function doLogin() {
       var email = emailInp.value.trim();
       var pass  = passInp.value;
-      if (!email) { errTxt.textContent = 'Email requis.'; return; }
-      connectBtn.disabled = true;
-      connectBtn.textContent = 'Connexion…';
-      errTxt.textContent = '';
-
+      if (!email) { err.textContent = 'Email requis.'; return; }
+      btn.disabled = true; btn.textContent = 'Connexion…'; err.textContent = '';
       _origFetch('/JfLetterboxd/connect', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -320,126 +360,103 @@
         .then(function (res) {
           if (res.success) {
             overlay.remove();
-            showModal(userId, item, true, res.username || email.split('@')[0]);
+            showRatingModal(userId, item, true, res.username || email.split('@')[0]);
           } else {
-            errTxt.textContent = res.error || 'Identifiants incorrects.';
-            connectBtn.disabled = false;
-            connectBtn.textContent = 'Se connecter';
+            err.textContent = res.error || 'Identifiants incorrects.';
+            btn.disabled = false; btn.textContent = 'Se connecter';
           }
         })
         .catch(function () {
-          errTxt.textContent = 'Erreur réseau.';
-          connectBtn.disabled = false;
-          connectBtn.textContent = 'Se connecter';
+          err.textContent = 'Erreur réseau.';
+          btn.disabled = false; btn.textContent = 'Se connecter';
         });
     }
-
-    connectBtn.onclick = doConnect;
+    btn.onclick = doLogin;
     [emailInp, passInp].forEach(function (i) {
-      i.addEventListener('keydown', function (e) { if (e.key === 'Enter') doConnect(); });
+      i.addEventListener('keydown', function (e) { if (e.key === 'Enter') doLogin(); });
     });
 
-    [desc, emailInp, passInp, connectBtn, skipBtn, errTxt].forEach(function (n) {
-      card.appendChild(n);
-    });
+    [desc, emailInp, passInp, btn, skip, err].forEach(function (n) { card.appendChild(n); });
   }
 
-  function buildModalRatingUI(card, overlay, userId, lbUser, tmdbId, imdbId, title, year) {
-    var userLine = el('p', { style: 'font-size:13px;color:#888;margin:0 0 18px' });
-    userLine.innerHTML = 'Connecté · <span style="color:#00C030;font-weight:600">' + esc(lbUser) + '</span>';
+  function buildStarRatingUI(card, overlay, userId, lbUser, tmdbId, imdbId, title, year) {
+    var who = mkEl('p', { style: 'font-size:13px;color:#888;margin:0 0 16px;' });
+    who.innerHTML = 'Connecté · <span style="color:#00C030;font-weight:600;">' + esc(lbUser) + '</span>';
 
-    var currentRating = 0;
-    var starsWrap = el('div', {
-      style: 'font-size:40px;cursor:pointer;user-select:none;letter-spacing:4px;' +
-             'display:flex;justify-content:center;gap:2px',
+    var cur = 0;
+    var starsRow = mkEl('div', {
+      style: 'display:flex;justify-content:center;gap:6px;font-size:38px;cursor:pointer;user-select:none;',
     });
-
     var starEls = [];
     for (var i = 1; i <= 5; i++) {
-      (function (val) {
-        var s = el('span', { style: 'color:#333;transition:color .1s' });
+      (function (v) {
+        var s = mkEl('span', { style: 'color:#333;transition:color .1s;' });
         s.textContent = '★';
-        s.addEventListener('mouseenter', function () { highlight(val); });
-        s.addEventListener('mouseleave', function () { highlight(currentRating); });
+        s.addEventListener('mouseenter', function () { paint(v); });
+        s.addEventListener('mouseleave', function () { paint(cur); });
         s.addEventListener('click', function () {
-          currentRating = (currentRating === val) ? 0 : val;
-          highlight(currentRating);
-          ratingLabel.textContent = ratingTxt(currentRating);
+          cur = (cur === v) ? 0 : v;
+          paint(cur);
+          lbl.textContent = cur ? cur + (cur > 1 ? ' étoiles' : ' étoile') : 'Sans note';
         });
-        starsWrap.appendChild(s);
+        starsRow.appendChild(s);
         starEls.push(s);
       })(i);
     }
 
-    function highlight(n) {
-      starEls.forEach(function (s, i) { s.style.color = (i < n) ? '#FFB800' : '#333'; });
+    function paint(n) {
+      starEls.forEach(function (s, i) { s.style.color = i < n ? '#FFB800' : '#333'; });
     }
 
-    var ratingLabel = el('p', { style: 'color:#777;font-size:13px;margin:8px 0 20px' });
-    ratingLabel.textContent = 'Pas de note';
+    var lbl = mkEl('p', { style: 'color:#777;font-size:13px;margin:8px 0 18px;' });
+    lbl.textContent = 'Sans note';
 
-    var row = el('div', { style: 'display:flex;gap:8px' });
-    var logBtn = el('button', { style: btnStyle('#00C030') + 'flex:1;' });
+    var row = mkEl('div', { style: 'display:flex;gap:8px;' });
+    var logBtn = mkEl('button', { style: primaryBtn() + 'flex:1;' });
     logBtn.textContent = 'Enregistrer';
-    var skipBtn = el('button', { style: btnStyle('#2a2a2a') + 'padding:10px 18px;color:#aaa;' });
+    var skipBtn = mkEl('button', { style: 'background:#2a2a2a;color:#aaa;border:none;border-radius:6px;padding:10px 16px;cursor:pointer;font-size:14px;' });
     skipBtn.textContent = 'Passer';
     skipBtn.onclick = function () { overlay.remove(); };
-    var msg = el('p', { style: 'font-size:13px;margin:12px 0 0;min-height:18px' });
+
+    var msg = mkEl('p', { style: 'font-size:13px;margin:12px 0 0;min-height:18px;' });
 
     logBtn.onclick = function () {
-      logBtn.disabled = true;
-      logBtn.textContent = 'Enregistrement…';
-      msg.style.color = '#888';
-      msg.textContent = '';
-
+      logBtn.disabled = true; logBtn.textContent = 'Enregistrement…'; msg.textContent = '';
       _origFetch('/JfLetterboxd/log', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId: userId,
-          tmdbId: tmdbId,
-          imdbId: imdbId,
-          title:  title,
-          year:   year ? parseInt(year) : null,
-          rating: currentRating,
-        }),
+        body: JSON.stringify({ userId: userId, tmdbId: tmdbId, imdbId: imdbId,
+                               title: title, year: year ? parseInt(year) : null, rating: cur }),
       })
         .then(function (r) { return r.json(); })
         .then(function (res) {
           if (res.success) {
-            msg.style.color = '#00C030';
-            msg.textContent = '✓ Enregistré sur Letterboxd !';
-            setTimeout(function () { overlay.remove(); }, 2200);
+            msg.style.color = '#00C030'; msg.textContent = '✓ Enregistré sur Letterboxd !';
+            setTimeout(function () { overlay.remove(); }, 2000);
           } else {
-            msg.style.color = '#f55';
-            msg.textContent = res.error || 'Erreur.';
-            logBtn.disabled = false;
-            logBtn.textContent = 'Enregistrer';
+            msg.style.color = '#f55'; msg.textContent = res.error || 'Erreur.';
+            logBtn.disabled = false; logBtn.textContent = 'Enregistrer';
           }
         })
         .catch(function () {
-          msg.style.color = '#f55';
-          msg.textContent = 'Erreur réseau.';
-          logBtn.disabled = false;
-          logBtn.textContent = 'Enregistrer';
+          msg.style.color = '#f55'; msg.textContent = 'Erreur réseau.';
+          logBtn.disabled = false; logBtn.textContent = 'Enregistrer';
         });
     };
 
     row.appendChild(logBtn);
     row.appendChild(skipBtn);
-    [userLine, starsWrap, ratingLabel, row, msg].forEach(function (n) { card.appendChild(n); });
+    [who, starsRow, lbl, row, msg].forEach(function (n) { card.appendChild(n); });
   }
 
   // ── Routage ───────────────────────────────────────────────────────────────
   function check() {
     var h = window.location.hash;
     if (h.indexOf('/mypreferencesmenu') !== -1) {
-      injectPrefsSection();
-    } else if (h.indexOf('/mypreferences') !== -1 ||
-               h.indexOf('/home') !== -1 ||
-               h.indexOf('/video') !== -1) {
-      // Pas de préférences → retirer la sentinelle pour la prochaine visite
-      var old = document.querySelector('.' + PREFS_CLASS);
+      injectMenuItem();
+    } else {
+      // Réinitialiser la sentinelle quand on quitte la page
+      var old = document.querySelector('.' + SENTINEL);
       if (old) old.remove();
     }
   }
@@ -459,40 +476,39 @@
   if (document.body) { init(); }
   else { document.addEventListener('DOMContentLoaded', init); }
 
-  // ── Helpers ───────────────────────────────────────────────────────────────
-  function el(tag, attrs) {
-    var node = document.createElement(tag);
+  // ── Helpers DOM ───────────────────────────────────────────────────────────
+  function mkEl(tag, attrs) {
+    var n = document.createElement(tag);
     Object.keys(attrs || {}).forEach(function (k) {
-      if (k === 'style') node.style.cssText = attrs[k];
-      else node.setAttribute(k, attrs[k]);
+      if (k === 'style') n.style.cssText = attrs[k]; else n.setAttribute(k, attrs[k]);
     });
-    return node;
+    return n;
   }
 
-  function inp(type, placeholder) {
-    var i = document.createElement('input');
-    i.type = type;
-    i.placeholder = placeholder;
+  function formInput(type, ph) {
+    var i = mkEl('input', { type: type });
+    i.placeholder = ph;
     i.style.cssText = [
       'display:block', 'width:100%', 'box-sizing:border-box',
       'padding:9px 12px', 'margin-bottom:8px',
       'border-radius:6px', 'border:1px solid #333',
-      'background:#0e0e0e', 'color:#fff', 'font-size:14px',
+      'background:#111', 'color:#fff', 'font-size:14px',
     ].join(';');
     return i;
+  }
+
+  function primaryBtn() {
+    return 'background:#00C030;color:#fff;border:none;border-radius:6px;' +
+           'padding:10px 0;font-size:14px;font-weight:600;cursor:pointer;width:100%;';
+  }
+
+  function dangerBtn() {
+    return 'background:#c0392b;color:#fff;border:none;border-radius:6px;' +
+           'padding:9px 20px;font-size:14px;cursor:pointer;';
   }
 
   function esc(s) {
     return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;')
                     .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-  }
-
-  function btnStyle(bg) {
-    return 'background:' + bg + ';color:#fff;border:none;border-radius:7px;' +
-           'padding:10px 0;font-size:15px;cursor:pointer;width:100%;font-weight:600;';
-  }
-
-  function ratingTxt(n) {
-    return n === 0 ? 'Pas de note' : n + ' étoile' + (n > 1 ? 's' : '');
   }
 })();
