@@ -63,7 +63,7 @@
 
         <!-- Formulaire de connexion -->
         <div id="lb-connect-form" style="display:none">
-          <input class="lb-input" id="lb-email" type="email" placeholder="Email Letterboxd" />
+          <input class="lb-input" id="lb-email" type="text" placeholder="Nom d'utilisateur Letterboxd" />
           <input class="lb-input" id="lb-password" type="password" placeholder="Mot de passe" />
           <button class="lb-btn lb-btn-green" id="lb-connect-btn">Se connecter</button>
           <p class="lb-error" id="lb-err"></p>
@@ -112,7 +112,7 @@
     var pass  = document.getElementById('lb-password').value;
     var err   = document.getElementById('lb-err');
     var btn   = document.getElementById('lb-connect-btn');
-    if (!email) { err.textContent = 'Email requis.'; return; }
+    if (!email) { err.textContent = "Nom d'utilisateur requis."; return; }
     err.textContent = '';
     btn.disabled = true;
     btn.textContent = 'Connexion…';

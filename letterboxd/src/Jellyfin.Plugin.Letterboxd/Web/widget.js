@@ -174,9 +174,9 @@
       desc.textContent = 'Connecte ton compte Letterboxd pour noter tes films à la fin de chaque visionnage.';
       body.appendChild(desc);
 
-      var emailInp = formInput('email', 'Email Letterboxd');
+      var loginInp = formInput('text', 'Nom d\'utilisateur Letterboxd');
       var passInp  = formInput('password', 'Mot de passe');
-      body.appendChild(emailInp);
+      body.appendChild(loginInp);
       body.appendChild(passInp);
 
       var row = mkEl('div', { style: 'display:flex;align-items:center;gap:10px;margin-top:4px;' });
@@ -188,9 +188,9 @@
       body.appendChild(row);
 
       function doLogin() {
-        var email = emailInp.value.trim();
+        var email = loginInp.value.trim();
         var pass  = passInp.value;
-        if (!email) { errSpan.textContent = 'Email requis.'; return; }
+        if (!email) { errSpan.textContent = 'Nom d\'utilisateur requis.'; return; }
         btn.disabled = true;
         btn.textContent = 'Connexion…';
         errSpan.textContent = '';
@@ -203,7 +203,7 @@
           .then(function (r) { return r.json(); })
           .then(function (res) {
             if (res.success) {
-              renderModalBody(body, userId, true, res.username || email.split('@')[0]);
+              renderModalBody(body, userId, true, res.username || email);
               // Mettre à jour le texte de l'item si visible
               var it = document.querySelector('.' + SENTINEL + ' .listItemBodyText');
               if (it) it.textContent = 'Letterboxd · ' + (res.username || '');
@@ -221,7 +221,7 @@
       }
 
       btn.onclick = doLogin;
-      [emailInp, passInp].forEach(function (i) {
+      [loginInp, passInp].forEach(function (i) {
         i.addEventListener('keydown', function (e) { if (e.key === 'Enter') doLogin(); });
       });
     }
@@ -329,9 +329,9 @@
     var desc = mkEl('p', { style: 'color:#bbb;font-size:14px;margin:0 0 16px' });
     desc.textContent = 'Connecte ton compte Letterboxd pour noter ce film.';
 
-    var emailInp = formInput('email', 'Email');
+    var loginInp = formInput('text', 'Nom d\'utilisateur Letterboxd');
     var passInp  = formInput('password', 'Mot de passe');
-    emailInp.style.marginBottom = '8px';
+    loginInp.style.marginBottom = '8px';
     passInp.style.marginBottom  = '12px';
 
     var btn = mkEl('button', { style: primaryBtn() });
@@ -347,20 +347,20 @@
     var err = mkEl('p', { style: 'color:#f55;font-size:13px;margin:10px 0 0;' });
 
     function doLogin() {
-      var email = emailInp.value.trim();
+      var login = loginInp.value.trim();
       var pass  = passInp.value;
-      if (!email) { err.textContent = 'Email requis.'; return; }
+      if (!login) { err.textContent = 'Nom d\'utilisateur requis.'; return; }
       btn.disabled = true; btn.textContent = 'Connexion…'; err.textContent = '';
       _origFetch('/JfLetterboxd/connect', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: userId, email: email, password: pass }),
+        body: JSON.stringify({ userId: userId, email: login, password: pass }),
       })
         .then(function (r) { return r.json(); })
         .then(function (res) {
           if (res.success) {
             overlay.remove();
-            showRatingModal(userId, item, true, res.username || email.split('@')[0]);
+            showRatingModal(userId, item, true, res.username || login);
           } else {
             err.textContent = res.error || 'Identifiants incorrects.';
             btn.disabled = false; btn.textContent = 'Se connecter';
@@ -372,11 +372,11 @@
         });
     }
     btn.onclick = doLogin;
-    [emailInp, passInp].forEach(function (i) {
+    [loginInp, passInp].forEach(function (i) {
       i.addEventListener('keydown', function (e) { if (e.key === 'Enter') doLogin(); });
     });
 
-    [desc, emailInp, passInp, btn, skip, err].forEach(function (n) { card.appendChild(n); });
+    [desc, loginInp, passInp, btn, skip, err].forEach(function (n) { card.appendChild(n); });
   }
 
   function buildStarRatingUI(card, overlay, userId, lbUser, tmdbId, imdbId, title, year) {
