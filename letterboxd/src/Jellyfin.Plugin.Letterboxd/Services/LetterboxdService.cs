@@ -15,17 +15,19 @@ using Microsoft.Extensions.Logging;
 namespace Jellyfin.Plugin.Letterboxd.Services;
 
 /// <summary>
-/// Gère les sessions Letterboxd par cookie navigateur.
-/// Letterboxd utilise Cloudflare Managed Challenge côté serveur —
-/// la seule méthode fiable est de passer les cookies du navigateur utilisateur.
+/// Gère les sessions Letterboxd.
+/// Tente d'abord un login direct username/password (AJAX vers /user/login.do).
+/// Si Cloudflare bloque (403 / page HTML de challenge), retourne "CLOUDFLARE_BLOCKED"
+/// pour que le frontend propose une connexion par cookie navigateur.
 /// </summary>
 public sealed class LetterboxdService
 {
     private const string LbBase = "https://letterboxd.com";
+
+    // Firefox UA — Cloudflare lie cf_clearance à l'UA exact du navigateur
     private const string UserAgent =
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) " +
-        "AppleWebKit/537.36 (KHTML, like Gecko) " +
-        "Chrome/124.0.0.0 Safari/537.36";
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:134.0) " +
+        "Gecko/20100101 Firefox/134.0";
 
     private static readonly JsonSerializerOptions _jsonOpts = new() { WriteIndented = true };
 
@@ -40,12 +42,135 @@ public sealed class LetterboxdService
         Directory.CreateDirectory(_dataDir);
     }
 
-    // ── Connexion par cookie navigateur ───────────────────────────────────────
+    // ── Login username / mot de passe ─────────────────────────────────────────
 
     /// <summary>
-    /// Valide une chaîne de cookies fournie par le navigateur et stocke la session.
-    /// Le cookie doit contenir au minimum <c>com.xk72.webparts.csrf</c>.
+    /// Tente de se connecter via username + password (flux AJAX en 2 étapes).
+    /// Retourne (false, "CLOUDFLARE_BLOCKED", null) si Cloudflare intercepte la requête.
     /// </summary>
+    public async Task<(bool Success, string? Error, string? Username)> LoginAsync(
+        string jellyfinUserId, string username, string password)
+    {
+        if (string.IsNullOrWhiteSpace(username))
+            return (false, "Nom d'utilisateur requis.", null);
+        if (string.IsNullOrWhiteSpace(password))
+            return (false, "Mot de passe requis.", null);
+
+        var jar     = new CookieContainer();
+        var handler = new HttpClientHandler
+        {
+            CookieContainer      = jar,
+            AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate | DecompressionMethods.Brotli,
+            AllowAutoRedirect    = true,
+        };
+        using var client = MakeClientFromHandler(handler);
+
+        // Étape 1 — charger la page de connexion pour obtenir le cookie CSRF
+        try
+        {
+            await client.GetStringAsync($"{LbBase}/sign-in/").ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "[Letterboxd] Cannot fetch sign-in page");
+        }
+
+        var lbUri    = new Uri(LbBase);
+        var csrfVal  = jar.GetCookies(lbUri)["com.xk72.webparts.csrf"]?.Value ?? string.Empty;
+
+        // Étape 2 — POST les identifiants en AJAX
+        var form = new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["__csrf"]   = csrfVal,
+            ["username"] = username,
+            ["password"] = password,
+            ["remember"] = "true",
+        });
+
+        var req = new HttpRequestMessage(HttpMethod.Post, $"{LbBase}/user/login.do") { Content = form };
+        req.Headers.TryAddWithoutValidation("X-Requested-With", "XMLHttpRequest");
+        req.Headers.TryAddWithoutValidation("Accept", "application/json, text/javascript, */*; q=0.01");
+        req.Headers.TryAddWithoutValidation("Referer", $"{LbBase}/sign-in/");
+
+        HttpResponseMessage resp;
+        try
+        {
+            resp = await client.SendAsync(req).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            return (false, $"Erreur réseau : {ex.Message}", null);
+        }
+
+        if (resp.StatusCode == HttpStatusCode.Forbidden)
+        {
+            _logger.LogInformation("[Letterboxd] Cloudflare blocked direct login for {Id}", jellyfinUserId);
+            return (false, "CLOUDFLARE_BLOCKED", null);
+        }
+
+        var body = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+        _logger.LogDebug("[Letterboxd] Login {Status}: {Preview}", resp.StatusCode, body[..Math.Min(200, body.Length)]);
+
+        // La réponse est du HTML → Cloudflare challenge ou page d'erreur
+        if (body.TrimStart().StartsWith('<'))
+        {
+            _logger.LogInformation("[Letterboxd] Received HTML instead of JSON — Cloudflare or error for {Id}", jellyfinUserId);
+            return (false, "CLOUDFLARE_BLOCKED", null);
+        }
+
+        // Parser la réponse JSON de Letterboxd
+        try
+        {
+            using var doc  = JsonDocument.Parse(body);
+            var root   = doc.RootElement;
+            var result = root.TryGetProperty("result", out var r) ? r.GetString() : null;
+
+            if (result != "success")
+            {
+                string? msg = null;
+                if (root.TryGetProperty("messages", out var msgs)
+                    && msgs.ValueKind == JsonValueKind.Array
+                    && msgs.GetArrayLength() > 0)
+                    msg = msgs[0].GetString();
+                return (false, msg ?? "Identifiants incorrects.", null);
+            }
+        }
+        catch
+        {
+            return (false, "CLOUDFLARE_BLOCKED", null);
+        }
+
+        // Succès — extraire les cookies de session pour les réutiliser côté serveur
+        var sessionCookies = jar.GetCookies(lbUri);
+        var cookieStr = string.Join("; ", sessionCookies.Cast<Cookie>().Select(c => $"{c.Name}={c.Value}"));
+
+        // Appel /me/ pour confirmer le username canonique
+        string? lbUsername = username;
+        try
+        {
+            var meHtml = await client.GetStringAsync($"{LbBase}/me/").ConfigureAwait(false);
+            var m = Regex.Match(meHtml,
+                @"letterboxd\.com/([a-zA-Z0-9_-]+)/""[^>]*>\s*(?:Profile|Profil)",
+                RegexOptions.IgnoreCase);
+            if (m.Success) lbUsername = m.Groups[1].Value;
+        }
+        catch { /* on garde le username saisi */ }
+
+        SaveSession(new UserSession
+        {
+            JellyfinUserId     = jellyfinUserId,
+            LetterboxdUsername = lbUsername ?? username,
+            CookieString       = cookieStr,
+            ConnectedAt        = DateTime.UtcNow,
+        });
+
+        _logger.LogInformation("[Letterboxd] {Id} logged in as {User}", jellyfinUserId, lbUsername);
+        return (true, null, lbUsername ?? username);
+    }
+
+    // ── Connexion par cookie navigateur (fallback Cloudflare) ────────────────
+
+    /// <summary>Valide une chaîne de cookies copiée depuis le navigateur.</summary>
     public async Task<(bool Success, string? Error, string? Username)> ConnectWithCookiesAsync(
         string jellyfinUserId, string cookieString)
     {
@@ -53,33 +178,20 @@ public sealed class LetterboxdService
         if (string.IsNullOrEmpty(cookieString))
             return (false, "Cookie vide.", null);
 
-        // Vérification minimale : le cookie de session Letterboxd doit être présent
-        if (!cookieString.Contains("com.xk72.webparts.csrf", StringComparison.OrdinalIgnoreCase) &&
-            !cookieString.Contains("letterboxd.signed.in", StringComparison.OrdinalIgnoreCase))
-            return (false,
-                "Cookie invalide — il doit contenir 'com.xk72.webparts.csrf'. " +
-                "Assure-toi d'être connecté à letterboxd.com avant de copier.",
-                null);
-
-        // Vérifier que la session est bien active
-        using var client = MakeClient(cookieString);
+        using var client = MakeCookieClient(cookieString);
         string? username = null;
         try
         {
             var html = await client.GetStringAsync($"{LbBase}/me/").ConfigureAwait(false);
 
-            // Vérifier si on est bien connecté (pas redirigé vers la page de connexion)
-            if (html.Contains("sign-in", StringComparison.OrdinalIgnoreCase) &&
-                html.Contains("action=\"/user/login.do\"", StringComparison.OrdinalIgnoreCase))
-                return (false, "Session expirée ou invalide — reconnecte-toi sur letterboxd.com.", null);
+            if (html.Contains("action=\"/user/login.do\"", StringComparison.OrdinalIgnoreCase))
+                return (false, "Session expirée — reconnecte-toi sur letterboxd.com.", null);
 
-            // Extraire le nom d'utilisateur depuis la page
             var m = Regex.Match(html,
                 @"letterboxd\.com/([a-zA-Z0-9_-]+)/""[^>]*>\s*(?:Profile|Profil)",
                 RegexOptions.IgnoreCase);
             if (!m.Success)
             {
-                // Essai alternatif : chercher dans le titre ou les meta
                 m = Regex.Match(html, @"<title>([^<]+)\s*•\s*Letterboxd</title>", RegexOptions.IgnoreCase);
                 username = m.Success ? m.Groups[1].Value.Trim() : "utilisateur";
             }
@@ -93,7 +205,6 @@ public sealed class LetterboxdService
             return (false, $"Impossible de valider la session : {ex.Message}", null);
         }
 
-        // Stocker la session
         SaveSession(new UserSession
         {
             JellyfinUserId     = jellyfinUserId,
@@ -102,7 +213,7 @@ public sealed class LetterboxdService
             ConnectedAt        = DateTime.UtcNow,
         });
 
-        _logger.LogInformation("[Letterboxd] User {Id} connected as {User}", jellyfinUserId, username);
+        _logger.LogInformation("[Letterboxd] {Id} connected via cookie as {User}", jellyfinUserId, username);
         return (true, null, username);
     }
 
@@ -129,7 +240,7 @@ public sealed class LetterboxdService
     /// <summary>Trouve l'ID Letterboxd d'un film via son ID IMDB.</summary>
     public async Task<string?> FindFilmByImdbAsync(string imdbId, string cookieStr)
     {
-        using var client = MakeClient(cookieStr);
+        using var client = MakeCookieClient(cookieStr);
         try
         {
             var resp = await client.GetAsync($"{LbBase}/imdb/{imdbId}").ConfigureAwait(false);
@@ -141,7 +252,7 @@ public sealed class LetterboxdService
     /// <summary>Trouve l'ID Letterboxd d'un film via son ID TMDB.</summary>
     public async Task<string?> FindFilmByTmdbAsync(string tmdbId, string cookieStr)
     {
-        using var client = MakeClient(cookieStr);
+        using var client = MakeCookieClient(cookieStr);
         try
         {
             var resp = await client.GetAsync($"{LbBase}/tmdb/{tmdbId}").ConfigureAwait(false);
@@ -153,7 +264,7 @@ public sealed class LetterboxdService
     /// <summary>Trouve l'ID Letterboxd via recherche textuelle (titre + année).</summary>
     public async Task<string?> FindFilmByTitleAsync(string title, int? year, string cookieStr)
     {
-        using var client = MakeClient(cookieStr);
+        using var client = MakeCookieClient(cookieStr);
         var query = Uri.EscapeDataString(year.HasValue ? $"{title} {year}" : title);
         try
         {
@@ -166,19 +277,16 @@ public sealed class LetterboxdService
 
     // ── Journalisation d'un film ──────────────────────────────────────────────
 
-    /// <summary>
-    /// Ajoute une entrée dans le journal Letterboxd.
-    /// <paramref name="rating"/> : 0 = pas de note, 1–5 = étoiles.
-    /// </summary>
+    /// <summary>Ajoute une entrée dans le journal Letterboxd.</summary>
     public async Task<(bool Success, string? Error)> LogFilmAsync(
         string filmId, int rating, string cookieStr)
     {
-        using var client = MakeClient(cookieStr);
+        using var client = MakeCookieClient(cookieStr);
 
         var csrf = await GetFreshCsrfAsync(client).ConfigureAwait(false)
                    ?? CsrfFromCookieStr(cookieStr);
         if (string.IsNullOrEmpty(csrf))
-            return (false, "Session expirée — reconnecte-toi depuis letterboxd.com.");
+            return (false, "Session expirée — reconnecte-toi.");
 
         var ratingInternal = Math.Clamp(rating * 2, 0, 10);
         var today          = DateTime.Today.ToString("yyyy-MM-dd");
@@ -208,13 +316,27 @@ public sealed class LetterboxdService
 
     // ── Helpers privés ────────────────────────────────────────────────────────
 
-    private static HttpClient MakeClient(string cookieStr)
+    /// <summary>Client HTTP avec CookieContainer (pour le login 2 étapes).</summary>
+    private static HttpClient MakeClientFromHandler(HttpClientHandler handler)
+    {
+        var client = new HttpClient(handler, disposeHandler: true);
+        client.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", UserAgent);
+        client.DefaultRequestHeaders.TryAddWithoutValidation("Accept-Language", "fr-FR,fr;q=0.9,en-US;q=0.8,en;q=0.7");
+        client.DefaultRequestHeaders.TryAddWithoutValidation("Sec-Fetch-Dest", "empty");
+        client.DefaultRequestHeaders.TryAddWithoutValidation("Sec-Fetch-Mode", "cors");
+        client.DefaultRequestHeaders.TryAddWithoutValidation("Sec-Fetch-Site", "same-origin");
+        client.DefaultRequestHeaders.TryAddWithoutValidation("Origin", LbBase);
+        return client;
+    }
+
+    /// <summary>Client HTTP simple avec Cookie header (pour les appels après connexion).</summary>
+    private static HttpClient MakeCookieClient(string cookieStr)
     {
         var client = new HttpClient();
-        client.DefaultRequestHeaders.Add("User-Agent", UserAgent);
-        client.DefaultRequestHeaders.Add("Cookie",    cookieStr);
-        client.DefaultRequestHeaders.Add("Origin",    LbBase);
-        client.DefaultRequestHeaders.Add("Referer",   $"{LbBase}/");
+        client.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", UserAgent);
+        client.DefaultRequestHeaders.TryAddWithoutValidation("Cookie",    cookieStr);
+        client.DefaultRequestHeaders.TryAddWithoutValidation("Origin",    LbBase);
+        client.DefaultRequestHeaders.TryAddWithoutValidation("Referer",   $"{LbBase}/");
         return client;
     }
 

@@ -1,11 +1,11 @@
 (function () {
   'use strict';
 
-  var SENTINEL   = 'jf-lb-prefs';   // classe sur l'item injecté
+  var SENTINEL   = 'jf-lb-prefs';
   var MODAL_ID   = 'jf-lb-modal';
   var _origFetch = window.fetch.bind(window);
 
-  // ── Auth (même helper que user-stats) ────────────────────────────────────
+  // ── Auth ────────────────────────────────────────────────────────────────────
   function getAuth() {
     try {
       if (window.ApiClient) {
@@ -23,11 +23,10 @@
     return null;
   }
 
-  // ── Injection de l'item dans /mypreferencesmenu ───────────────────────────
+  // ── Item dans /mypreferencesmenu ─────────────────────────────────────────────
   function injectMenuItem() {
-    if (document.querySelector('.' + SENTINEL)) return; // déjà là
+    if (document.querySelector('.' + SENTINEL)) return;
 
-    // Attendre qu'un item natif soit rendu (ex: lien "Affichage")
     var knownItem = document.querySelector(
       '.lnkDisplayPreferences, .lnkUserProfile, .lnkHomePreferences'
     );
@@ -39,19 +38,14 @@
     var container = knownItem.parentNode;
     if (!container) return;
 
-    // Créer l'item — copie exacte du style Jellyfin
     var a = document.createElement('a');
     a.className = SENTINEL + ' listItem-border';
     a.href = '#';
     a.style.cssText = 'display:block;margin:0;padding:0;';
     a.innerHTML =
       '<div class="listItem">' +
-        '<span class="material-icons listItemIcon listItemIcon-transparent" aria-hidden="true">' +
-          'movie' +
-        '</span>' +
-        '<div class="listItemBody">' +
-          '<div class="listItemBodyText">Letterboxd</div>' +
-        '</div>' +
+        '<span class="material-icons listItemIcon listItemIcon-transparent" aria-hidden="true">movie</span>' +
+        '<div class="listItemBody"><div class="listItemBodyText">Letterboxd</div></div>' +
       '</div>';
 
     a.addEventListener('click', function (e) {
@@ -63,42 +57,28 @@
     container.appendChild(a);
   }
 
-  // ── Modale paramètres Letterboxd ─────────────────────────────────────────
+  // ── Modale paramètres ────────────────────────────────────────────────────────
   function openSettingsModal(userId) {
     closeModal();
 
     var overlay = mkEl('div', {
       id: MODAL_ID,
-      style: [
-        'position:fixed', 'inset:0', 'z-index:99998',
-        'background:rgba(0,0,0,.75)',
-        'display:flex', 'align-items:center', 'justify-content:center',
-      ].join(';'),
+      style: 'position:fixed;inset:0;z-index:99998;background:rgba(0,0,0,.75);' +
+             'display:flex;align-items:center;justify-content:center;',
     });
-
-    overlay.addEventListener('click', function (e) {
-      if (e.target === overlay) closeModal();
-    });
+    overlay.addEventListener('click', function (e) { if (e.target === overlay) closeModal(); });
 
     var card = mkEl('div', {
-      style: [
-        'background:#1c1c1c', 'border-radius:10px',
-        'padding:28px 32px', 'width:360px', 'max-width:92vw',
-        'position:relative', 'color:#fff', 'font-family:inherit',
-      ].join(';'),
+      style: 'background:#1c1c1c;border-radius:10px;padding:28px 32px;width:360px;' +
+             'max-width:92vw;position:relative;color:#fff;font-family:inherit;',
     });
 
-    // Header
-    var hdr = mkEl('div', {
-      style: 'display:flex;align-items:center;gap:10px;margin-bottom:20px;',
-    });
+    var hdr = mkEl('div', { style: 'display:flex;align-items:center;gap:10px;margin-bottom:20px;' });
     hdr.innerHTML =
       '<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 100 100">' +
         '<circle cx="50" cy="50" r="50" fill="#00C030"/>' +
-        '<text x="50" y="67" text-anchor="middle" font-family="serif" ' +
-              'font-size="52" font-weight="bold" fill="white">L</text>' +
-      '</svg>' +
-      '<span style="font-size:18px;font-weight:700;">Letterboxd</span>';
+        '<text x="50" y="67" text-anchor="middle" font-family="serif" font-size="52" font-weight="bold" fill="white">L</text>' +
+      '</svg><span style="font-size:18px;font-weight:700;">Letterboxd</span>';
 
     var closeBtn = mkEl('button', {
       style: 'position:absolute;top:14px;right:16px;background:none;border:none;' +
@@ -115,12 +95,9 @@
     overlay.appendChild(card);
     document.body.appendChild(overlay);
 
-    // Charger le statut
     _origFetch('/JfLetterboxd/status?userId=' + userId)
       .then(function (r) { return r.json(); })
-      .then(function (s) {
-        renderModalBody(body, userId, s.connected, s.username || '');
-      })
+      .then(function (s) { renderModalBody(body, userId, s.connected, s.username || ''); })
       .catch(function () {
         body.innerHTML = '<p style="color:#f55;font-size:14px">Erreur de connexion au plugin.</p>';
       });
@@ -130,17 +107,13 @@
     body.innerHTML = '';
 
     if (connected) {
-      // ── Connecté ──────────────────────────────────────────────────────────
-      var infoDiv = mkEl('div', {
-        style: 'display:flex;align-items:center;gap:10px;margin-bottom:20px;',
-      });
+      // ── Connecté ────────────────────────────────────────────────────────────
+      var infoDiv = mkEl('div', { style: 'display:flex;align-items:center;gap:10px;margin-bottom:20px;' });
       var badge = mkEl('span', {
         style: 'background:#00C030;color:#fff;border-radius:50%;width:36px;height:36px;' +
-               'display:flex;align-items:center;justify-content:center;font-size:18px;' +
-               'font-weight:700;flex-shrink:0;',
+               'display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;flex-shrink:0;',
       });
       badge.textContent = lbUser.charAt(0).toUpperCase();
-
       var nameCol = mkEl('div');
       var label = mkEl('div', { style: 'font-size:12px;color:#888;' });
       label.textContent = 'Compte connecté';
@@ -169,8 +142,8 @@
       body.appendChild(discBtn);
 
     } else {
-      // ── Non connecté — connexion par cookie ───────────────────────────────
-      renderCookieForm(body, userId, function (username) {
+      // ── Non connecté ────────────────────────────────────────────────────────
+      renderLoginForm(body, userId, function (username) {
         renderModalBody(body, userId, true, username);
         var it = document.querySelector('.' + SENTINEL + ' .listItemBodyText');
         if (it) it.textContent = 'Letterboxd · ' + username;
@@ -178,44 +151,98 @@
     }
   }
 
-  // ── Formulaire cookie partagé (settings + rating modal) ──────────────────
-  function renderCookieForm(container, userId, onSuccess) {
+  // ── Formulaire de connexion (username + mot de passe, fallback cookie) ────────
+  function renderLoginForm(container, userId, onSuccess) {
     container.innerHTML = '';
 
-    var steps = mkEl('div', {
-      style: 'background:#111;border-radius:8px;padding:14px 16px;margin-bottom:16px;font-size:13px;line-height:1.7;color:#bbb;',
-    });
-    steps.innerHTML =
-      '<b style="color:#fff;display:block;margin-bottom:6px;">Comment obtenir ton cookie :</b>' +
-      '<span style="color:#00C030;font-weight:700;">1.</span> Ouvre <a href="https://letterboxd.com" target="_blank" style="color:#00C030;">letterboxd.com</a> et connecte-toi<br>' +
-      '<span style="color:#00C030;font-weight:700;">2.</span> Appuie sur <b>F12</b> → onglet <b>Réseau</b> (Network)<br>' +
-      '<span style="color:#00C030;font-weight:700;">3.</span> Actualise la page (<b>F5</b>)<br>' +
-      '<span style="color:#00C030;font-weight:700;">4.</span> Clique sur la 1<sup>re</sup> requête <b>letterboxd.com</b><br>' +
-      '<span style="color:#00C030;font-weight:700;">5.</span> Dans <b>En-têtes de requête</b>, copie la valeur de <b>cookie</b>:<br>' +
-      '<span style="color:#777;font-size:12px;">→ clic-droit sur la valeur → «&nbsp;Copier la valeur&nbsp;»</span>';
-
-    var ta = mkEl('textarea', {});
-    ta.placeholder = 'Colle ici la valeur du cookie (com.xk72.webparts.csrf=…)';
-    ta.rows = 4;
-    ta.style.cssText = [
-      'display:block', 'width:100%', 'box-sizing:border-box',
-      'padding:9px 12px', 'margin-bottom:10px',
-      'border-radius:6px', 'border:1px solid #333',
-      'background:#111', 'color:#fff', 'font-size:12px',
-      'resize:vertical', 'font-family:monospace',
-    ].join(';');
+    var loginInp = formInput('text', 'Nom d\'utilisateur Letterboxd');
+    var passInp  = formInput('password', 'Mot de passe');
+    container.appendChild(loginInp);
+    container.appendChild(passInp);
 
     var btn = mkEl('button', { style: primaryBtn() });
-    btn.textContent = 'Valider';
+    btn.textContent = 'Se connecter';
+    container.appendChild(btn);
 
-    var errSpan = mkEl('p', { style: 'color:#f55;font-size:13px;margin:8px 0 0;' });
+    var err = mkEl('p', { style: 'color:#f55;font-size:13px;margin:10px 0 0;min-height:18px;' });
+    container.appendChild(err);
 
-    function doConnect() {
-      var cookie = ta.value.trim();
-      if (!cookie) { errSpan.textContent = 'Colle le cookie avant de valider.'; return; }
+    // Zone cookie (cachée par défaut, apparaît si Cloudflare bloque)
+    var cookieZone = mkEl('div', { style: 'display:none;margin-top:16px;' });
+    var cfMsg = mkEl('p', {
+      style: 'font-size:13px;color:#f90;margin:0 0 8px;border-top:1px solid #333;padding-top:14px;',
+    });
+    cfMsg.innerHTML =
+      '⚠️ Cloudflare bloque la connexion directe.<br>' +
+      '<a href="https://letterboxd.com" target="_blank" style="color:#00C030;">Ouvre letterboxd.com</a> ' +
+      '→ <b>F12</b> → Réseau → clique une requête → copie le <b>cookie</b> :';
+
+    var ta = mkEl('textarea', {});
+    ta.placeholder = 'Colle le cookie ici…';
+    ta.rows = 3;
+    ta.style.cssText =
+      'display:block;width:100%;box-sizing:border-box;padding:8px 10px;margin:6px 0;' +
+      'border-radius:6px;border:1px solid #333;background:#111;color:#fff;' +
+      'font-size:12px;font-family:monospace;resize:vertical;';
+
+    var cookieBtn = mkEl('button', { style: primaryBtn() + 'margin-top:4px;' });
+    cookieBtn.textContent = 'Valider le cookie';
+
+    cookieZone.appendChild(cfMsg);
+    cookieZone.appendChild(ta);
+    cookieZone.appendChild(cookieBtn);
+    container.appendChild(cookieZone);
+
+    // ── Login username / password ────────────────────────────────────────────
+    function doLogin() {
+      var login = loginInp.value.trim();
+      var pass  = passInp.value;
+      if (!login) { err.textContent = 'Nom d\'utilisateur requis.'; return; }
       btn.disabled = true;
-      btn.textContent = 'Vérification…';
-      errSpan.textContent = '';
+      btn.textContent = 'Connexion…';
+      err.textContent = '';
+      cookieZone.style.display = 'none';
+
+      _origFetch('/JfLetterboxd/connect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: userId, username: login, password: pass }),
+      })
+        .then(function (r) { return r.json(); })
+        .then(function (res) {
+          if (res.success) {
+            if (onSuccess) onSuccess(res.username || login);
+          } else if (res.error === 'CLOUDFLARE_BLOCKED') {
+            // Afficher la zone cookie compacte
+            err.textContent = '';
+            btn.disabled = false;
+            btn.textContent = 'Se connecter';
+            cookieZone.style.display = '';
+          } else {
+            err.textContent = res.error || 'Identifiants incorrects.';
+            btn.disabled = false;
+            btn.textContent = 'Se connecter';
+          }
+        })
+        .catch(function () {
+          err.textContent = 'Erreur réseau.';
+          btn.disabled = false;
+          btn.textContent = 'Se connecter';
+        });
+    }
+
+    btn.onclick = doLogin;
+    [loginInp, passInp].forEach(function (i) {
+      i.addEventListener('keydown', function (e) { if (e.key === 'Enter') doLogin(); });
+    });
+
+    // ── Login par cookie (fallback Cloudflare) ───────────────────────────────
+    cookieBtn.onclick = function () {
+      var cookie = ta.value.trim();
+      if (!cookie) { err.textContent = 'Colle le cookie avant de valider.'; return; }
+      cookieBtn.disabled = true;
+      cookieBtn.textContent = 'Vérification…';
+      err.textContent = '';
 
       _origFetch('/JfLetterboxd/connect', {
         method: 'POST',
@@ -227,20 +254,17 @@
           if (res.success) {
             if (onSuccess) onSuccess(res.username || '?');
           } else {
-            errSpan.textContent = res.error || 'Cookie invalide ou session expirée.';
-            btn.disabled = false;
-            btn.textContent = 'Valider';
+            err.textContent = res.error || 'Cookie invalide ou session expirée.';
+            cookieBtn.disabled = false;
+            cookieBtn.textContent = 'Valider le cookie';
           }
         })
         .catch(function () {
-          errSpan.textContent = 'Erreur réseau.';
-          btn.disabled = false;
-          btn.textContent = 'Valider';
+          err.textContent = 'Erreur réseau.';
+          cookieBtn.disabled = false;
+          cookieBtn.textContent = 'Valider le cookie';
         });
-    }
-
-    btn.onclick = doConnect;
-    [steps, ta, btn, errSpan].forEach(function (n) { container.appendChild(n); });
+    };
   }
 
   function closeModal() {
@@ -248,9 +272,7 @@
     if (m) m.remove();
   }
 
-  // ── Modal de notation fin de film ─────────────────────────────────────────
-
-  // Wrapper fetch pour détecter la fin d'un film
+  // ── Détection fin de film ────────────────────────────────────────────────────
   window.fetch = function (url, options) {
     var p = _origFetch(url, options);
     try {
@@ -277,12 +299,12 @@
             setTimeout(function () {
               showRatingModal(userId, item, s.connected, s.username || '');
             }, 1200);
-          })
-          .catch(function () {});
+          });
       })
       .catch(function () {});
   }
 
+  // ── Modale de notation ───────────────────────────────────────────────────────
   function showRatingModal(userId, item, connected, lbUser) {
     if (document.getElementById(MODAL_ID)) return;
 
@@ -296,9 +318,7 @@
       style: 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.8);' +
              'display:flex;align-items:center;justify-content:center;font-family:inherit;',
     });
-    overlay.addEventListener('click', function (e) {
-      if (e.target === overlay) overlay.remove();
-    });
+    overlay.addEventListener('click', function (e) { if (e.target === overlay) overlay.remove(); });
 
     var card = mkEl('div', {
       style: 'background:#1c1c1c;border-radius:12px;padding:28px 32px;' +
@@ -317,8 +337,7 @@
     logoWrap.innerHTML =
       '<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 100 100">' +
         '<circle cx="50" cy="50" r="50" fill="#00C030"/>' +
-        '<text x="50" y="67" text-anchor="middle" font-family="serif" ' +
-              'font-size="52" font-weight="bold" fill="white">L</text>' +
+        '<text x="50" y="67" text-anchor="middle" font-family="serif" font-size="52" font-weight="bold" fill="white">L</text>' +
       '</svg>';
 
     var htitle = mkEl('h3', { style: 'margin:0 0 2px;font-size:17px;font-weight:700;' });
@@ -332,31 +351,27 @@
     card.appendChild(sub);
 
     if (!connected) {
-      buildRatingConnectUI(card, overlay, userId, item, tmdbId, imdbId);
+      // Formulaire de connexion dans la modale de notation
+      var wrap = mkEl('div', { style: 'text-align:left;' });
+      renderLoginForm(wrap, userId, function (username) {
+        overlay.remove();
+        showRatingModal(userId, item, true, username);
+      });
+      card.appendChild(wrap);
+
+      var skip = mkEl('button', {
+        style: 'background:none;border:none;color:#666;font-size:13px;cursor:pointer;' +
+               'display:block;width:100%;margin-top:10px;text-align:center;',
+      });
+      skip.textContent = 'Passer';
+      skip.onclick = function () { overlay.remove(); };
+      card.appendChild(skip);
     } else {
       buildStarRatingUI(card, overlay, userId, lbUser, tmdbId, imdbId, title, year);
     }
 
     overlay.appendChild(card);
     document.body.appendChild(overlay);
-  }
-
-  function buildRatingConnectUI(card, overlay, userId, item, tmdbId, imdbId) {
-    var wrap = mkEl('div', { style: 'text-align:left;' });
-    card.appendChild(wrap);
-
-    renderCookieForm(wrap, userId, function (username) {
-      overlay.remove();
-      showRatingModal(userId, item, true, username);
-    });
-
-    var skip = mkEl('button', {
-      style: 'background:none;border:none;color:#666;font-size:13px;cursor:pointer;' +
-             'display:block;width:100%;margin-top:8px;text-align:center;',
-    });
-    skip.textContent = 'Passer';
-    skip.onclick = function () { overlay.remove(); };
-    card.appendChild(skip);
   }
 
   function buildStarRatingUI(card, overlay, userId, lbUser, tmdbId, imdbId, title, year) {
@@ -394,33 +409,44 @@
     var row = mkEl('div', { style: 'display:flex;gap:8px;' });
     var logBtn = mkEl('button', { style: primaryBtn() + 'flex:1;' });
     logBtn.textContent = 'Enregistrer';
-    var skipBtn = mkEl('button', { style: 'background:#2a2a2a;color:#aaa;border:none;border-radius:6px;padding:10px 16px;cursor:pointer;font-size:14px;' });
+    var skipBtn = mkEl('button', {
+      style: 'background:#2a2a2a;color:#aaa;border:none;border-radius:6px;padding:10px 16px;cursor:pointer;font-size:14px;',
+    });
     skipBtn.textContent = 'Passer';
     skipBtn.onclick = function () { overlay.remove(); };
 
     var msg = mkEl('p', { style: 'font-size:13px;margin:12px 0 0;min-height:18px;' });
 
     logBtn.onclick = function () {
-      logBtn.disabled = true; logBtn.textContent = 'Enregistrement…'; msg.textContent = '';
+      logBtn.disabled = true;
+      logBtn.textContent = 'Enregistrement…';
+      msg.textContent = '';
       _origFetch('/JfLetterboxd/log', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: userId, tmdbId: tmdbId, imdbId: imdbId,
-                               title: title, year: year ? parseInt(year) : null, rating: cur }),
+        body: JSON.stringify({
+          userId: userId, tmdbId: tmdbId, imdbId: imdbId,
+          title: title, year: year ? parseInt(year) : null, rating: cur,
+        }),
       })
         .then(function (r) { return r.json(); })
         .then(function (res) {
           if (res.success) {
-            msg.style.color = '#00C030'; msg.textContent = '✓ Enregistré sur Letterboxd !';
+            msg.style.color = '#00C030';
+            msg.textContent = '✓ Enregistré sur Letterboxd !';
             setTimeout(function () { overlay.remove(); }, 2000);
           } else {
-            msg.style.color = '#f55'; msg.textContent = res.error || 'Erreur.';
-            logBtn.disabled = false; logBtn.textContent = 'Enregistrer';
+            msg.style.color = '#f55';
+            msg.textContent = res.error || 'Erreur.';
+            logBtn.disabled = false;
+            logBtn.textContent = 'Enregistrer';
           }
         })
         .catch(function () {
-          msg.style.color = '#f55'; msg.textContent = 'Erreur réseau.';
-          logBtn.disabled = false; logBtn.textContent = 'Enregistrer';
+          msg.style.color = '#f55';
+          msg.textContent = 'Erreur réseau.';
+          logBtn.disabled = false;
+          logBtn.textContent = 'Enregistrer';
         });
     };
 
@@ -429,13 +455,11 @@
     [who, starsRow, lbl, row, msg].forEach(function (n) { card.appendChild(n); });
   }
 
-  // ── Routage ───────────────────────────────────────────────────────────────
+  // ── Routage ──────────────────────────────────────────────────────────────────
   function check() {
-    var h = window.location.hash;
-    if (h.indexOf('/mypreferencesmenu') !== -1) {
+    if (window.location.hash.indexOf('/mypreferencesmenu') !== -1) {
       injectMenuItem();
     } else {
-      // Réinitialiser la sentinelle quand on quitte la page
       var old = document.querySelector('.' + SENTINEL);
       if (old) old.remove();
     }
@@ -456,7 +480,7 @@
   if (document.body) { init(); }
   else { document.addEventListener('DOMContentLoaded', init); }
 
-  // ── Helpers DOM ───────────────────────────────────────────────────────────
+  // ── Helpers DOM ──────────────────────────────────────────────────────────────
   function mkEl(tag, attrs) {
     var n = document.createElement(tag);
     Object.keys(attrs || {}).forEach(function (k) {
@@ -468,12 +492,11 @@
   function formInput(type, ph) {
     var i = mkEl('input', { type: type });
     i.placeholder = ph;
-    i.style.cssText = [
-      'display:block', 'width:100%', 'box-sizing:border-box',
-      'padding:9px 12px', 'margin-bottom:8px',
-      'border-radius:6px', 'border:1px solid #333',
-      'background:#111', 'color:#fff', 'font-size:14px',
-    ].join(';');
+    i.style.cssText =
+      'display:block;width:100%;box-sizing:border-box;' +
+      'padding:9px 12px;margin-bottom:8px;' +
+      'border-radius:6px;border:1px solid #333;' +
+      'background:#111;color:#fff;font-size:14px;';
     return i;
   }
 

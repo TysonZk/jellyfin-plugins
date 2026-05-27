@@ -9,12 +9,20 @@ namespace Jellyfin.Plugin.Letterboxd.Controllers;
 
 // ── Request bodies ────────────────────────────────────────────────────────────
 
-/// <summary>Corps de la requête de connexion Letterboxd par cookie navigateur.</summary>
+/// <summary>Corps de la requête de connexion Letterboxd.</summary>
 public sealed class ConnectRequest
 {
     /// <summary>ID utilisateur Jellyfin.</summary>
-    public string? UserId       { get; set; }
-    /// <summary>Chaîne de cookies copiée depuis le navigateur (header Cookie).</summary>
+    public string? UserId { get; set; }
+
+    // ── Login direct ──────────────────────────────────────────────────────────
+    /// <summary>Nom d'utilisateur Letterboxd.</summary>
+    public string? Username { get; set; }
+    /// <summary>Mot de passe Letterboxd.</summary>
+    public string? Password { get; set; }
+
+    // ── Fallback cookie (si Cloudflare bloque le login direct) ────────────────
+    /// <summary>Chaîne de cookies copiée depuis le navigateur.</summary>
     public string? CookieString { get; set; }
 }
 
@@ -83,19 +91,37 @@ public sealed class LetterboxdController : ControllerBase
 
     // ── Connexion ─────────────────────────────────────────────────────────────
 
-    /// <summary>Connecte un utilisateur Jellyfin à Letterboxd via ses cookies navigateur.</summary>
+    /// <summary>
+    /// Connecte un utilisateur Jellyfin à Letterboxd.
+    /// Essaie d'abord le login username/password.
+    /// Si Cloudflare bloque, retourne error="CLOUDFLARE_BLOCKED" et le frontend
+    /// propose la connexion par cookie.
+    /// </summary>
     [HttpPost("connect")]
     public async Task<IActionResult> Connect([FromBody] ConnectRequest req)
     {
-        if (string.IsNullOrEmpty(req.UserId) || string.IsNullOrEmpty(req.CookieString))
-            return BadRequest(new { error = "userId et cookieString requis" });
+        if (string.IsNullOrEmpty(req.UserId))
+            return BadRequest(new { error = "userId requis" });
 
-        var (ok, err, username) = await _lb.ConnectWithCookiesAsync(req.UserId, req.CookieString)
-            .ConfigureAwait(false);
+        // ── Connexion par cookie (fallback Cloudflare) ────────────────────────
+        if (!string.IsNullOrEmpty(req.CookieString))
+        {
+            var (ok, err, username) = await _lb.ConnectWithCookiesAsync(req.UserId, req.CookieString)
+                .ConfigureAwait(false);
+            if (!ok) return BadRequest(new { error = err });
+            return Ok(new { success = true, username });
+        }
 
-        if (!ok) return BadRequest(new { error = err });
+        // ── Connexion username / mot de passe ─────────────────────────────────
+        if (!string.IsNullOrEmpty(req.Username))
+        {
+            var (ok, err, username) = await _lb.LoginAsync(req.UserId, req.Username, req.Password ?? string.Empty)
+                .ConfigureAwait(false);
+            if (!ok) return BadRequest(new { error = err });
+            return Ok(new { success = true, username });
+        }
 
-        return Ok(new { success = true, username = username ?? string.Empty });
+        return BadRequest(new { error = "Identifiants requis" });
     }
 
     // ── Déconnexion ───────────────────────────────────────────────────────────
