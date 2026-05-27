@@ -61,8 +61,19 @@ jobs:
         id: checksum
         run: echo "md5=$(md5sum dist/Jellyfin.Plugin.Letterboxd.zip | cut -d' ' -f1)" >> $GITHUB_OUTPUT
 
-      - name: Update manifest.json
+      # Créer le release D'ABORD (avant le commit manifest qui peut échouer)
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/Jellyfin.Plugin.Letterboxd.zip
+          generate_release_notes: true
+
+      - name: Commit manifest
         run: |
+          git config user.name  "TysonZk"
+          git config user.email "nolan.dessirier@jeff-de-bruges.com"
+          # Récupérer le manifest le plus récent de main avant de commiter
+          git fetch origin main
+          git checkout origin/main -- manifest.json
           python3 - <<'PYEOF'
           import json, os
           from datetime import datetime, timezone
@@ -107,21 +118,11 @@ jobs:
               f.write('\n')
           print(f"manifest updated — Letterboxd v{version}")
           PYEOF
+          git add manifest.json
+          git diff --staged --quiet || git commit -m "chore: manifest Letterboxd ${{ github.ref_name }}"
+          git push origin HEAD:main
         env:
           VERSION:  ${{ steps.version.outputs.value }}
           CHECKSUM: ${{ steps.checksum.outputs.md5 }}
           TAG:      ${{ github.ref_name }}
           REPO:     ${{ github.repository }}
-
-      - name: Commit manifest
-        run: |
-          git config user.name  "TysonZk"
-          git config user.email "nolan.dessirier@jeff-de-bruges.com"
-          git add manifest.json
-          git diff --staged --quiet || git commit -m "chore: manifest Letterboxd ${{ github.ref_name }}"
-          git push origin HEAD:main
-
-      - uses: softprops/action-gh-release@v2
-        with:
-          files: dist/Jellyfin.Plugin.Letterboxd.zip
-          generate_release_notes: true
