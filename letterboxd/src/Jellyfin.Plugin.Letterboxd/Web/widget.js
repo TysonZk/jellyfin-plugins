@@ -276,8 +276,11 @@
   window.fetch = function (url, options) {
     var p = _origFetch(url, options);
     try {
-      if (typeof url === 'string' && options && (options.method || '').toUpperCase() === 'POST') {
-        var m = url.match(/\/Users\/([^/?#]+)\/PlayedItems\/([^/?#]+)/);
+      var urlStr = typeof url === 'string' ? url : (url && url.url) || '';
+      var method = (options && options.method || '').toUpperCase();
+      // PlayedItems peut être POST sans body (méthode par défaut POST en Jellyfin)
+      if (urlStr && (method === 'POST' || method === '')) {
+        var m = urlStr.match(/\/Users\/([^/?#]+)\/PlayedItems\/([^/?#]+)/);
         if (m) {
           (function (uid, itemId) {
             p.then(function () { onItemPlayed(uid, itemId); }).catch(function () {});
@@ -289,17 +292,31 @@
   };
 
   function onItemPlayed(userId, itemId) {
-    _origFetch('/Items/' + itemId + '?userId=' + userId)
-      .then(function (r) { return r.json(); })
+    // Utilise ApiClient natif (auth incluse) ou fetch + token manuel
+    function fetchItem() {
+      if (window.ApiClient && typeof window.ApiClient.getItem === 'function') {
+        return window.ApiClient.getItem(userId, itemId);
+      }
+      var auth = getAuth();
+      var headers = {};
+      if (auth && auth.token) {
+        headers['Authorization'] = 'MediaBrowser Token="' + auth.token + '"';
+      }
+      return _origFetch('/Items/' + itemId + '?userId=' + userId, { headers: headers })
+        .then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); });
+    }
+
+    fetchItem()
       .then(function (item) {
-        if (item.Type !== 'Movie') return;
+        if (!item || item.Type !== 'Movie') return;
         _origFetch('/JfLetterboxd/status?userId=' + userId)
           .then(function (r) { return r.json(); })
           .then(function (s) {
             setTimeout(function () {
               showRatingModal(userId, item, s.connected, s.username || '');
             }, 1200);
-          });
+          })
+          .catch(function () {});
       })
       .catch(function () {});
   }
