@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Letterboxd</title>
+  <style>
+    .lb-card {
+      max-width: 460px;
+      background: #141414;
+      border-radius: 12px;
+      padding: 28px 32px;
+      margin: 24px 0;
+      color: #fff;
+      font-family: sans-serif;
+    }
+    .lb-card h2 {
+      margin: 0 0 6px;
+      font-size: 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .lb-desc { color: #888; font-size: 14px; margin: 0 0 20px; }
+    .lb-input {
+      display: block; width: 100%; box-sizing: border-box;
+      padding: 10px 12px; margin-bottom: 8px;
+      border-radius: 7px; border: 1px solid #333;
+      background: #0e0e0e; color: #fff; font-size: 14px;
+    }
+    .lb-btn {
+      display: inline-block; padding: 10px 22px;
+      border-radius: 7px; border: none; font-size: 15px;
+      font-weight: 600; cursor: pointer;
+    }
+    .lb-btn-green  { background: #00C030; color: #fff; }
+    .lb-btn-danger { background: #c0392b; color: #fff; }
+    .lb-error   { color: #f55; font-size: 13px; margin: 10px 0 0; }
+    .lb-success { color: #00C030; font-size: 14px; }
+    .lb-username { color: #00C030; font-weight: 700; }
+    #lb-connected, #lb-connect-form { margin-top: 12px; }
+  </style>
+</head>
+<body>
+
+<div id="letterboxdConfigPage" data-role="page" class="page type-interior withSectionTabs">
+  <div data-role="content">
+    <div class="content-primary">
+
+      <div class="lb-card">
+        <h2>
+          <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 100 100">
+            <circle cx="50" cy="50" r="50" fill="#00C030"/>
+            <text x="50" y="68" text-anchor="middle" font-family="serif" font-size="52"
+                  font-weight="bold" fill="white">L</text>
+          </svg>
+          Letterboxd
+        </h2>
+        <p class="lb-desc">
+          Connecte ton compte Letterboxd. À la fin de chaque film, une fenêtre t'invitera
+          à noter le film directement dans ton journal Letterboxd.
+        </p>
+
+        <div id="lb-status" style="color:#888;font-size:14px">Vérification…</div>
+
+        <!-- Formulaire de connexion -->
+        <div id="lb-connect-form" style="display:none">
+          <input class="lb-input" id="lb-email" type="email" placeholder="Email Letterboxd" />
+          <input class="lb-input" id="lb-password" type="password" placeholder="Mot de passe" />
+          <button class="lb-btn lb-btn-green" id="lb-connect-btn">Se connecter</button>
+          <p class="lb-error" id="lb-err"></p>
+        </div>
+
+        <!-- Section connecté -->
+        <div id="lb-connected" style="display:none">
+          <p>Connecté en tant que <span class="lb-username" id="lb-username-display"></span></p>
+          <button class="lb-btn lb-btn-danger" id="lb-disconnect-btn">Déconnecter</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  var userId;
+
+  function init() {
+    userId = ApiClient.getCurrentUserId();
+    if (!userId) { setTimeout(init, 300); return; }
+    loadStatus();
+  }
+
+  function loadStatus() {
+    fetch('/JfLetterboxd/status?userId=' + userId)
+      .then(function (r) { return r.json(); })
+      .then(function (s) {
+        document.getElementById('lb-status').style.display = 'none';
+        if (s.connected) {
+          document.getElementById('lb-username-display').textContent = s.username || '?';
+          document.getElementById('lb-connected').style.display = '';
+        } else {
+          document.getElementById('lb-connect-form').style.display = '';
+        }
+      })
+      .catch(function () {
+        document.getElementById('lb-status').textContent = 'Impossible de joindre le plugin.';
+      });
+  }
+
+  document.getElementById('lb-connect-btn').addEventListener('click', function () {
+    var email = document.getElementById('lb-email').value.trim();
+    var pass  = document.getElementById('lb-password').value;
+    var err   = document.getElementById('lb-err');
+    var btn   = document.getElementById('lb-connect-btn');
+    if (!email) { err.textContent = 'Email requis.'; return; }
+    err.textContent = '';
+    btn.disabled = true;
+    btn.textContent = 'Connexion…';
+
+    fetch('/JfLetterboxd/connect', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: userId, email: email, password: pass }),
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (res) {
+        if (res.success) {
+          document.getElementById('lb-connect-form').style.display = 'none';
+          document.getElementById('lb-username-display').textContent = res.username || email;
+          document.getElementById('lb-connected').style.display = '';
+        } else {
+          err.textContent = res.error || 'Identifiants incorrects.';
+          btn.disabled = false;
+          btn.textContent = 'Se connecter';
+        }
+      })
+      .catch(function () {
+        err.textContent = 'Erreur réseau.';
+        btn.disabled = false;
+        btn.textContent = 'Se connecter';
+      });
+  });
+
+  document.getElementById('lb-disconnect-btn').addEventListener('click', function () {
+    fetch('/JfLetterboxd/disconnect?userId=' + userId, { method: 'DELETE' })
+      .then(function () {
+        document.getElementById('lb-connected').style.display = 'none';
+        document.getElementById('lb-connect-form').style.display = '';
+        document.getElementById('lb-email').value = '';
+        document.getElementById('lb-password').value = '';
+      });
+  });
+
+  // Jellyfin charge la page via viewshow
+  document.addEventListener('viewshow', init);
+  if (document.readyState !== 'loading') init();
+})();
+</script>
+</body>
+</html>

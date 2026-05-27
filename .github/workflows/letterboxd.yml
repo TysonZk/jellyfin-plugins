@@ -1,0 +1,127 @@
+name: Letterboxd — Build & Release
+
+on:
+  push:
+    tags:
+      - 'letterboxd-v*'
+  pull_request:
+    paths:
+      - 'letterboxd/**'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Build
+        run: dotnet build letterboxd/src/Jellyfin.Plugin.Letterboxd/Jellyfin.Plugin.Letterboxd.csproj -c Release
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Jellyfin.Plugin.Letterboxd
+          path: letterboxd/src/Jellyfin.Plugin.Letterboxd/bin/Release/net8.0/Jellyfin.Plugin.Letterboxd.dll
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/letterboxd-v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Get version
+        id: version
+        run: echo "value=${GITHUB_REF#refs/tags/letterboxd-v}" >> $GITHUB_OUTPUT
+
+      - name: Build
+        run: dotnet build letterboxd/src/Jellyfin.Plugin.Letterboxd/Jellyfin.Plugin.Letterboxd.csproj -c Release
+
+      - name: Create zip
+        run: |
+          mkdir -p dist
+          cp letterboxd/src/Jellyfin.Plugin.Letterboxd/bin/Release/net8.0/Jellyfin.Plugin.Letterboxd.dll dist/
+          cd dist && zip Jellyfin.Plugin.Letterboxd.zip Jellyfin.Plugin.Letterboxd.dll
+
+      - name: MD5
+        id: checksum
+        run: echo "md5=$(md5sum dist/Jellyfin.Plugin.Letterboxd.zip | cut -d' ' -f1)" >> $GITHUB_OUTPUT
+
+      - name: Update manifest.json
+        run: |
+          python3 - <<'PYEOF'
+          import json, os
+          from datetime import datetime, timezone
+
+          version   = os.environ['VERSION']
+          checksum  = os.environ['CHECKSUM']
+          tag       = os.environ['TAG']
+          repo      = os.environ['REPO']
+          timestamp = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+          source_url = f"https://github.com/{repo}/releases/download/{tag}/Jellyfin.Plugin.Letterboxd.zip"
+
+          with open('manifest.json') as f:
+              manifest = json.load(f)
+
+          guid = 'c2d3e4f5-6a7b-4890-ab12-3456789012cd'
+          plugin = next((p for p in manifest if p['guid'] == guid), None)
+          if plugin is None:
+              plugin = {
+                  'guid':        guid,
+                  'name':        'Letterboxd',
+                  'description': 'Note tes films sur Letterboxd directement depuis Jellyfin.',
+                  'overview':    'Modal de notation Letterboxd à la fin de chaque film.',
+                  'owner':       'TysonZk',
+                  'category':    'General',
+                  'imageUrl':    f'https://raw.githubusercontent.com/{repo}/main/letterboxd/src/Jellyfin.Plugin.Letterboxd/Web/logo.png',
+                  'versions':    [],
+              }
+              manifest.append(plugin)
+
+          plugin['versions'] = [v for v in plugin['versions'] if v['version'] != version]
+          plugin['versions'].insert(0, {
+              'version':   version,
+              'changelog': 'See release notes on GitHub.',
+              'targetAbi': '10.10.0.0',
+              'sourceUrl': source_url,
+              'checksum':  checksum,
+              'timestamp': timestamp,
+          })
+
+          with open('manifest.json', 'w', encoding='utf-8') as f:
+              json.dump(manifest, f, indent=2, ensure_ascii=False)
+              f.write('\n')
+          print(f"manifest updated — Letterboxd v{version}")
+          PYEOF
+        env:
+          VERSION:  ${{ steps.version.outputs.value }}
+          CHECKSUM: ${{ steps.checksum.outputs.md5 }}
+          TAG:      ${{ github.ref_name }}
+          REPO:     ${{ github.repository }}
+
+      - name: Commit manifest
+        run: |
+          git config user.name  "TysonZk"
+          git config user.email "nolan.dessirier@jeff-de-bruges.com"
+          git add manifest.json
+          git diff --staged --quiet || git commit -m "chore: manifest Letterboxd ${{ github.ref_name }}"
+          git push origin HEAD:main
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/Jellyfin.Plugin.Letterboxd.zip
+          generate_release_notes: true
