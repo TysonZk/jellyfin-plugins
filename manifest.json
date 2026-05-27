@@ -66,6 +66,14 @@
     "imageUrl": "https://raw.githubusercontent.com/TysonZk/jellyfin-plugins/main/letterboxd/src/Jellyfin.Plugin.Letterboxd/Web/logo.png",
     "versions": [
       {
+        "version": "1.0.6",
+        "changelog": "See release notes on GitHub.",
+        "targetAbi": "10.10.0.0",
+        "sourceUrl": "https://github.com/TysonZk/jellyfin-plugins/releases/download/letterboxd-v1.0.6/Jellyfin.Plugin.Letterboxd.zip",
+        "checksum": "b496fa292dde9954fc9e8d7b23562645",
+        "timestamp": "2026-05-27T12:33:12Z"
+      },
+      {
         "version": "1.0.5",
         "changelog": "See release notes on GitHub.",
         "targetAbi": "10.10.0.0",
