@@ -31,6 +31,15 @@ Ajoute un bouton d'accès rapide à Jellyseerr dans le header Jellyfin (page d'a
 - URL Jellyseerr configurable depuis l'admin
 - Masqué automatiquement pendant la lecture vidéo
 
+### [🎞 Letterboxd](./letterboxd/)
+
+Affiche une modale de notation à la fin de chaque film, pour l'ajouter directement à ton journal Letterboxd.
+
+- Connexion compte Letterboxd depuis les paramètres du plugin (par utilisateur)
+- Popup avec système d'étoiles (1–5) à la fin de chaque film
+- Envoi automatique dans le journal Letterboxd
+- Lookup du film via IMDB ID, TMDB ID, ou titre en fallback
+
 ## Installer
 
 1. **Tableau de bord → Plugins → Catalogues → +**
@@ -51,11 +60,14 @@ jellyfin-plugins/
 │   └── src/Jellyfin.Plugin.Discord/
 ├── jellyseerr/               # Plugin Jellyseerr
 │   └── src/Jellyfin.Plugin.Seerr/
-├── manifest.json             # Catalogue Jellyfin (3 plugins)
+├── letterboxd/               # Plugin Letterboxd
+│   └── src/Jellyfin.Plugin.Letterboxd/
+├── manifest.json             # Catalogue Jellyfin (4 plugins)
 └── .github/workflows/
     ├── userstats.yml         # Release déclenchée par  userstats-v*
     ├── discord.yml           # Release déclenchée par  discord-v*
-    └── seerr.yml             # Release déclenchée par  seerr-v*
+    ├── seerr.yml             # Release déclenchée par  seerr-v*
+    └── letterboxd.yml        # Release déclenchée par  letterboxd-v*
 ```
 
 ---
@@ -91,6 +103,15 @@ Adds a quick-access button to Jellyseerr in the Jellyfin header (home page only)
 - Jellyseerr URL configurable from the admin panel
 - Automatically hidden during video playback
 
+### [🎞 Letterboxd](./letterboxd/)
+
+Shows a rating popup at the end of each movie, to log it directly to your Letterboxd diary.
+
+- Connect your Letterboxd account from the plugin settings (per user)
+- Star rating popup (1–5) when a movie finishes
+- Automatically logs the entry to your Letterboxd diary
+- Film lookup via IMDB ID, TMDB ID, or title as fallback
+
 ## Install
 
 1. **Dashboard → Plugins → Repositories → +**
@@ -111,11 +132,14 @@ jellyfin-plugins/
 │   └── src/Jellyfin.Plugin.Discord/
 ├── jellyseerr/               # Jellyseerr plugin
 │   └── src/Jellyfin.Plugin.Seerr/
-├── manifest.json             # Jellyfin catalog (3 plugins)
+├── letterboxd/               # Letterboxd plugin
+│   └── src/Jellyfin.Plugin.Letterboxd/
+├── manifest.json             # Jellyfin catalog (4 plugins)
 └── .github/workflows/
     ├── userstats.yml         # Release triggered by  userstats-v*
     ├── discord.yml           # Release triggered by  discord-v*
-    └── seerr.yml             # Release triggered by  seerr-v*
+    ├── seerr.yml             # Release triggered by  seerr-v*
+    └── letterboxd.yml        # Release triggered by  letterboxd-v*
 ```
 
 ## License
