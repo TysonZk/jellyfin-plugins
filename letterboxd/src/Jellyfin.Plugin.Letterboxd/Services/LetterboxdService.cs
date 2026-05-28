@@ -144,8 +144,9 @@ public sealed class LetterboxdService
         var sessionCookies = jar.GetCookies(lbUri);
         var cookieStr = string.Join("; ", sessionCookies.Cast<Cookie>().Select(c => $"{c.Name}={c.Value}"));
 
-        // Appel /me/ pour confirmer le username canonique
+        // Appel /me/ pour confirmer le username et récupérer l'avatar
         string? lbUsername = username;
+        string? avatarUrl  = null;
         try
         {
             var meHtml = await client.GetStringAsync($"{LbBase}/me/").ConfigureAwait(false);
@@ -153,6 +154,7 @@ public sealed class LetterboxdService
                 @"letterboxd\.com/([a-zA-Z0-9_-]+)/""[^>]*>\s*(?:Profile|Profil)",
                 RegexOptions.IgnoreCase);
             if (m.Success) lbUsername = m.Groups[1].Value;
+            avatarUrl = ExtractAvatarUrl(meHtml);
         }
         catch { /* on garde le username saisi */ }
 
@@ -161,6 +163,7 @@ public sealed class LetterboxdService
             JellyfinUserId     = jellyfinUserId,
             LetterboxdUsername = lbUsername ?? username,
             CookieString       = cookieStr,
+            AvatarUrl          = avatarUrl,
             ConnectedAt        = DateTime.UtcNow,
         });
 
@@ -179,7 +182,8 @@ public sealed class LetterboxdService
             return (false, "Cookie vide.", null);
 
         using var client = MakeCookieClient(cookieString);
-        string? username = null;
+        string? username  = null;
+        string? avatarUrl = null;
         try
         {
             var html = await client.GetStringAsync($"{LbBase}/me/").ConfigureAwait(false);
@@ -199,6 +203,8 @@ public sealed class LetterboxdService
             {
                 username = m.Groups[1].Value;
             }
+
+            avatarUrl = ExtractAvatarUrl(html);
         }
         catch (Exception ex)
         {
@@ -210,6 +216,7 @@ public sealed class LetterboxdService
             JellyfinUserId     = jellyfinUserId,
             LetterboxdUsername = username ?? "utilisateur",
             CookieString       = cookieString,
+            AvatarUrl          = avatarUrl,
             ConnectedAt        = DateTime.UtcNow,
         });
 
@@ -240,11 +247,13 @@ public sealed class LetterboxdService
     /// <summary>Trouve l'ID Letterboxd d'un film via son ID IMDB.</summary>
     public async Task<string?> FindFilmByImdbAsync(string imdbId, string cookieStr)
     {
-        using var client = MakeCookieClient(cookieStr);
+        using var client = MakeFollowClient(cookieStr);
         try
         {
-            var resp = await client.GetAsync($"{LbBase}/imdb/{imdbId}").ConfigureAwait(false);
-            return ExtractFilmId(await resp.Content.ReadAsStringAsync().ConfigureAwait(false));
+            var html = await client.GetStringAsync($"{LbBase}/imdb/{imdbId}").ConfigureAwait(false);
+            var id = ExtractFilmId(html);
+            _logger.LogDebug("[Letterboxd] IMDB {ImdbId} → filmId={Id}", imdbId, id ?? "null");
+            return id;
         }
         catch (Exception ex) { _logger.LogWarning(ex, "[Letterboxd] IMDB lookup failed for {Id}", imdbId); return null; }
     }
@@ -252,11 +261,13 @@ public sealed class LetterboxdService
     /// <summary>Trouve l'ID Letterboxd d'un film via son ID TMDB.</summary>
     public async Task<string?> FindFilmByTmdbAsync(string tmdbId, string cookieStr)
     {
-        using var client = MakeCookieClient(cookieStr);
+        using var client = MakeFollowClient(cookieStr);
         try
         {
-            var resp = await client.GetAsync($"{LbBase}/tmdb/{tmdbId}").ConfigureAwait(false);
-            return ExtractFilmId(await resp.Content.ReadAsStringAsync().ConfigureAwait(false));
+            var html = await client.GetStringAsync($"{LbBase}/tmdb/{tmdbId}").ConfigureAwait(false);
+            var id = ExtractFilmId(html);
+            _logger.LogDebug("[Letterboxd] TMDB {TmdbId} → filmId={Id}", tmdbId, id ?? "null");
+            return id;
         }
         catch (Exception ex) { _logger.LogWarning(ex, "[Letterboxd] TMDB lookup failed for {Id}", tmdbId); return null; }
     }
@@ -264,15 +275,23 @@ public sealed class LetterboxdService
     /// <summary>Trouve l'ID Letterboxd via recherche textuelle (titre + année).</summary>
     public async Task<string?> FindFilmByTitleAsync(string title, int? year, string cookieStr)
     {
-        using var client = MakeCookieClient(cookieStr);
-        var query = Uri.EscapeDataString(year.HasValue ? $"{title} {year}" : title);
-        try
+        using var client = MakeFollowClient(cookieStr);
+        // Try with year first, then without
+        foreach (var q in year.HasValue
+            ? new[] { $"{title} {year}", title }
+            : new[] { title })
         {
-            var html = await client.GetStringAsync($"{LbBase}/search/films/{query}/").ConfigureAwait(false);
-            var m    = Regex.Match(html, @"data-film-id=""(\d+)""");
-            return m.Success ? m.Groups[1].Value : null;
+            var query = Uri.EscapeDataString(q);
+            try
+            {
+                var html = await client.GetStringAsync($"{LbBase}/search/films/{query}/").ConfigureAwait(false);
+                var id   = ExtractFilmId(html);
+                _logger.LogDebug("[Letterboxd] Title search '{Q}' → filmId={Id}", q, id ?? "null");
+                if (id is not null) return id;
+            }
+            catch (Exception ex) { _logger.LogWarning(ex, "[Letterboxd] Text search failed for '{Title}'", q); }
         }
-        catch (Exception ex) { _logger.LogWarning(ex, "[Letterboxd] Text search failed for '{Title}'", title); return null; }
+        return null;
     }
 
     // ── Journalisation d'un film ──────────────────────────────────────────────
@@ -340,6 +359,24 @@ public sealed class LetterboxdService
         return client;
     }
 
+    /// <summary>Client HTTP avec auto-redirect activé (pour les lookups IMDB/TMDB qui redirigent).</summary>
+    private static HttpClient MakeFollowClient(string cookieStr)
+    {
+        var handler = new HttpClientHandler
+        {
+            AllowAutoRedirect      = true,
+            AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate | DecompressionMethods.Brotli,
+            UseCookies             = false,
+        };
+        var client = new HttpClient(handler, disposeHandler: true);
+        client.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", UserAgent);
+        client.DefaultRequestHeaders.TryAddWithoutValidation("Cookie",    cookieStr);
+        client.DefaultRequestHeaders.TryAddWithoutValidation("Origin",    LbBase);
+        client.DefaultRequestHeaders.TryAddWithoutValidation("Referer",   $"{LbBase}/");
+        client.DefaultRequestHeaders.TryAddWithoutValidation("Accept",    "text/html,application/xhtml+xml,*/*;q=0.9");
+        return client;
+    }
+
     private static async Task<string?> GetFreshCsrfAsync(HttpClient client)
     {
         try
@@ -374,6 +411,22 @@ public sealed class LetterboxdService
     private static string? ExtractFilmId(string html)
     {
         var m = Regex.Match(html, @"data-film-id=""(\d+)""");
+        if (m.Success) return m.Groups[1].Value;
+        m = Regex.Match(html, @"""filmId""\s*:\s*(\d+)");
+        if (m.Success) return m.Groups[1].Value;
+        m = Regex.Match(html, @"/film/[^/""]+/\?.*?data-film-id=""(\d+)""");
+        return m.Success ? m.Groups[1].Value : null;
+    }
+
+    private static string? ExtractAvatarUrl(string html)
+    {
+        // Pattern: <img ... class="avatar" ... src="https://a.ltrbxd.com/..."
+        var m = Regex.Match(html, @"<img[^>]+class=""avatar[^""]*""[^>]+src=""(https://[^""]+)""", RegexOptions.IgnoreCase);
+        if (m.Success) return m.Groups[1].Value;
+        m = Regex.Match(html, @"<img[^>]+src=""(https://a\.ltrbxd\.com[^""]+)""[^>]*class=""avatar", RegexOptions.IgnoreCase);
+        if (m.Success) return m.Groups[1].Value;
+        // Broader: any a.ltrbxd.com image near "avatar"
+        m = Regex.Match(html, @"avatar[^<]{0,200}src=""(https://a\.ltrbxd\.com[^""]+)""", RegexOptions.IgnoreCase | RegexOptions.Singleline);
         return m.Success ? m.Groups[1].Value : null;
     }
 

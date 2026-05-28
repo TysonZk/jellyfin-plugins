@@ -14,6 +14,9 @@ public sealed class UserSession
     /// <summary>Cookies de session (valeur de l'en-tête Cookie).</summary>
     public string CookieString { get; set; } = string.Empty;
 
+    /// <summary>URL de l'avatar Letterboxd.</summary>
+    public string? AvatarUrl { get; set; }
+
     /// <summary>Date de connexion.</summary>
     public DateTime ConnectedAt { get; set; }
 }

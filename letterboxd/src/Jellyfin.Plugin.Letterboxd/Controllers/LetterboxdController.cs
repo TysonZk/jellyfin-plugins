@@ -92,6 +92,7 @@ public sealed class LetterboxdController : ControllerBase
         {
             connected = session is not null,
             username  = session?.LetterboxdUsername ?? string.Empty,
+            avatarUrl = session?.AvatarUrl ?? string.Empty,
         });
     }
 
@@ -115,7 +116,8 @@ public sealed class LetterboxdController : ControllerBase
             var (ok, err, username) = await _lb.ConnectWithCookiesAsync(req.UserId, req.CookieString)
                 .ConfigureAwait(false);
             if (!ok) return BadRequest(new { error = err });
-            return Ok(new { success = true, username });
+            var avatarCookie = _lb.GetSession(req.UserId)?.AvatarUrl ?? string.Empty;
+            return Ok(new { success = true, username, avatarUrl = avatarCookie });
         }
 
         // ── Connexion username / mot de passe ─────────────────────────────────
@@ -124,7 +126,8 @@ public sealed class LetterboxdController : ControllerBase
             var (ok, err, username) = await _lb.LoginAsync(req.UserId, req.Username, req.Password ?? string.Empty)
                 .ConfigureAwait(false);
             if (!ok) return BadRequest(new { error = err });
-            return Ok(new { success = true, username });
+            var avatarLogin = _lb.GetSession(req.UserId)?.AvatarUrl ?? string.Empty;
+            return Ok(new { success = true, username, avatarUrl = avatarLogin });
         }
 
         return BadRequest(new { error = "Identifiants requis" });
