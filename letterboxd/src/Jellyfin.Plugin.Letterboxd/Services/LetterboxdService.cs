@@ -244,54 +244,128 @@ public sealed class LetterboxdService
 
     // ── Recherche de film ─────────────────────────────────────────────────────
 
-    /// <summary>Trouve l'ID Letterboxd d'un film via son ID IMDB.</summary>
+    /// <summary>Trouve l'ID Letterboxd d'un film via son ID IMDB (Wikidata → slug → page film).</summary>
     public async Task<string?> FindFilmByImdbAsync(string imdbId, string cookieStr)
     {
-        using var client = MakeFollowClient(cookieStr);
-        try
-        {
-            var html = await client.GetStringAsync($"{LbBase}/imdb/{imdbId}").ConfigureAwait(false);
-            var id = ExtractFilmId(html);
-            _logger.LogDebug("[Letterboxd] IMDB {ImdbId} → filmId={Id}", imdbId, id ?? "null");
-            return id;
-        }
-        catch (Exception ex) { _logger.LogWarning(ex, "[Letterboxd] IMDB lookup failed for {Id}", imdbId); return null; }
-    }
+        // 1. Wikidata: IMDB → Letterboxd slug
+        var slug = await FindSlugFromWikidataAsync("P345", imdbId).ConfigureAwait(false);
+        _logger.LogInformation("[Letterboxd] IMDB {Id} → Wikidata slug={Slug}", imdbId, slug ?? "null");
 
-    /// <summary>Trouve l'ID Letterboxd d'un film via son ID TMDB.</summary>
-    public async Task<string?> FindFilmByTmdbAsync(string tmdbId, string cookieStr)
-    {
-        using var client = MakeFollowClient(cookieStr);
-        try
+        // 2. fallback: /imdb/{id} redirect (may be Cloudflare-blocked, worth trying)
+        if (slug is null)
         {
-            var html = await client.GetStringAsync($"{LbBase}/tmdb/{tmdbId}").ConfigureAwait(false);
-            var id = ExtractFilmId(html);
-            _logger.LogDebug("[Letterboxd] TMDB {TmdbId} → filmId={Id}", tmdbId, id ?? "null");
-            return id;
-        }
-        catch (Exception ex) { _logger.LogWarning(ex, "[Letterboxd] TMDB lookup failed for {Id}", tmdbId); return null; }
-    }
-
-    /// <summary>Trouve l'ID Letterboxd via recherche textuelle (titre + année).</summary>
-    public async Task<string?> FindFilmByTitleAsync(string title, int? year, string cookieStr)
-    {
-        using var client = MakeFollowClient(cookieStr);
-        // Try with year first, then without
-        foreach (var q in year.HasValue
-            ? new[] { $"{title} {year}", title }
-            : new[] { title })
-        {
-            var query = Uri.EscapeDataString(q);
+            using var client = MakeFollowClient(cookieStr);
             try
             {
-                var html = await client.GetStringAsync($"{LbBase}/search/films/{query}/").ConfigureAwait(false);
-                var id   = ExtractFilmId(html);
-                _logger.LogDebug("[Letterboxd] Title search '{Q}' → filmId={Id}", q, id ?? "null");
+                var html = await client.GetStringAsync($"{LbBase}/imdb/{imdbId}").ConfigureAwait(false);
+                var id2  = ExtractFilmIdFromPage(html);
+                _logger.LogInformation("[Letterboxd] IMDB redirect → filmId={Id}", id2 ?? "null");
+                if (id2 is not null) return id2;
+            }
+            catch { }
+        }
+
+        return slug is not null ? await FindFilmIdBySlugAsync(slug).ConfigureAwait(false) : null;
+    }
+
+    /// <summary>Trouve l'ID Letterboxd d'un film via son ID TMDB (Wikidata → slug → page film).</summary>
+    public async Task<string?> FindFilmByTmdbAsync(string tmdbId, string cookieStr)
+    {
+        var slug = await FindSlugFromWikidataAsync("P4947", tmdbId).ConfigureAwait(false);
+        _logger.LogInformation("[Letterboxd] TMDB {Id} → Wikidata slug={Slug}", tmdbId, slug ?? "null");
+
+        if (slug is null)
+        {
+            using var client = MakeFollowClient(cookieStr);
+            try
+            {
+                var html = await client.GetStringAsync($"{LbBase}/tmdb/{tmdbId}").ConfigureAwait(false);
+                var id2  = ExtractFilmIdFromPage(html);
+                _logger.LogInformation("[Letterboxd] TMDB redirect → filmId={Id}", id2 ?? "null");
+                if (id2 is not null) return id2;
+            }
+            catch { }
+        }
+
+        return slug is not null ? await FindFilmIdBySlugAsync(slug).ConfigureAwait(false) : null;
+    }
+
+    /// <summary>Trouve l'ID Letterboxd via titre + année (slug construit + Wikidata).</summary>
+    public async Task<string?> FindFilmByTitleAsync(string title, int? year, string cookieStr)
+    {
+        // Try Letterboxd slug derived from title (English title, lowercase, hyphenated)
+        var slugGuesses = BuildSlugGuesses(title, year);
+        foreach (var slug in slugGuesses)
+        {
+            var id = await FindFilmIdBySlugAsync(slug).ConfigureAwait(false);
+            _logger.LogInformation("[Letterboxd] Slug guess '{S}' → filmId={Id}", slug, id ?? "null");
+            if (id is not null) return id;
+        }
+
+        // Fallback: search (may be Cloudflare-blocked)
+        using var client = MakeFollowClient(cookieStr);
+        foreach (var q in year.HasValue ? new[] { $"{title} {year}", title } : new[] { title })
+        {
+            try
+            {
+                var html = await client.GetStringAsync($"{LbBase}/search/films/{Uri.EscapeDataString(q)}/").ConfigureAwait(false);
+                var id   = ExtractFilmIdFromPage(html);
+                _logger.LogInformation("[Letterboxd] Title search '{Q}' → filmId={Id}", q, id ?? "null");
                 if (id is not null) return id;
             }
-            catch (Exception ex) { _logger.LogWarning(ex, "[Letterboxd] Text search failed for '{Title}'", q); }
+            catch { }
         }
         return null;
+    }
+
+    // ── Wikidata + slug-based film resolution ─────────────────────────────────
+
+    /// <summary>Requête Wikidata SPARQL pour obtenir le slug Letterboxd via un ID externe.</summary>
+    private async Task<string?> FindSlugFromWikidataAsync(string wikidataProperty, string externalId)
+    {
+        // Wikidata SPARQL — pas de Cloudflare, CORS friendly
+        var sparql = $"SELECT ?lb WHERE {{ ?film wdt:{wikidataProperty} \"{externalId}\" . ?film wdt:P6127 ?lb . }}";
+        var url    = $"https://query.wikidata.org/sparql?format=json&query={Uri.EscapeDataString(sparql)}";
+        try
+        {
+            using var client = new HttpClient();
+            client.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", "JellyfinLetterboxdPlugin/1.0");
+            client.DefaultRequestHeaders.TryAddWithoutValidation("Accept", "application/json");
+            var json = await client.GetStringAsync(url).ConfigureAwait(false);
+            using var doc = JsonDocument.Parse(json);
+            var bindings = doc.RootElement
+                .GetProperty("results")
+                .GetProperty("bindings");
+            if (bindings.GetArrayLength() > 0)
+                return bindings[0].GetProperty("lb").GetProperty("value").GetString();
+        }
+        catch (Exception ex) { _logger.LogWarning(ex, "[Letterboxd] Wikidata lookup failed for {Prop}={Id}", wikidataProperty, externalId); }
+        return null;
+    }
+
+    /// <summary>Obtient l'ID numérique Letterboxd depuis la page film (accessible sans Cloudflare).</summary>
+    private async Task<string?> FindFilmIdBySlugAsync(string slug)
+    {
+        try
+        {
+            using var client = new HttpClient();
+            client.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", UserAgent);
+            client.DefaultRequestHeaders.TryAddWithoutValidation("Accept", "text/html,application/xhtml+xml,*/*;q=0.9");
+            var html = await client.GetStringAsync($"{LbBase}/film/{slug}/").ConfigureAwait(false);
+            return ExtractFilmIdFromPage(html);
+        }
+        catch (Exception ex) { _logger.LogWarning(ex, "[Letterboxd] Slug lookup failed for '{Slug}'", slug); return null; }
+    }
+
+    private static IEnumerable<string> BuildSlugGuesses(string title, int? year)
+    {
+        // Normalise to ASCII-ish lowercase slug
+        var slug = Regex.Replace(title.ToLowerInvariant(), @"[^a-z0-9]+", "-").Trim('-');
+        if (year.HasValue)
+        {
+            yield return $"{slug}-{year}";
+        }
+        yield return slug;
     }
 
     // ── Journalisation d'un film ──────────────────────────────────────────────
@@ -323,11 +397,11 @@ public sealed class LetterboxdService
         {
             var resp = await client.PostAsync($"{LbBase}/s/save-diary-entry", form).ConfigureAwait(false);
             var body = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
-            _logger.LogDebug("[Letterboxd] LogFilm {Status}: {Body}", resp.StatusCode, body);
+            _logger.LogInformation("[Letterboxd] LogFilm {Status}: {Preview}", resp.StatusCode, body[..Math.Min(120, body.Length)]);
 
             if (resp.IsSuccessStatusCode) return (true, null);
-            if (body.Contains("cf-", StringComparison.OrdinalIgnoreCase))
-                return (false, "Session Cloudflare expirée — reconnecte-toi.");
+            if (resp.StatusCode == HttpStatusCode.Forbidden)
+                return (false, "CLOUDFLARE_BLOCKED_POST");
             return (false, $"Letterboxd a répondu {(int)resp.StatusCode}");
         }
         catch (Exception ex) { return (false, ex.Message); }
@@ -408,13 +482,15 @@ public sealed class LetterboxdService
         return null;
     }
 
-    private static string? ExtractFilmId(string html)
+    private static string? ExtractFilmIdFromPage(string html)
     {
-        var m = Regex.Match(html, @"data-film-id=""(\d+)""");
+        // production-data JSON: {"uid":"film:977835",...}
+        var m = Regex.Match(html, @"""uid""\s*:\s*""film:(\d+)""");
+        if (m.Success) return m.Groups[1].Value;
+        // Inline data-film-id attribute
+        m = Regex.Match(html, @"data-film-id=""(\d+)""");
         if (m.Success) return m.Groups[1].Value;
         m = Regex.Match(html, @"""filmId""\s*:\s*(\d+)");
-        if (m.Success) return m.Groups[1].Value;
-        m = Regex.Match(html, @"/film/[^/""]+/\?.*?data-film-id=""(\d+)""");
         return m.Success ? m.Groups[1].Value : null;
     }
 

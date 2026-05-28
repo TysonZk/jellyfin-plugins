@@ -470,6 +470,12 @@
             msg.style.color = '#00c030';
             msg.textContent = '✓ Enregistré sur Letterboxd !';
             setTimeout(function () { overlay.remove(); }, 1800);
+          } else if (res.action === 'client_submit') {
+            // Server POST blocked by Cloudflare — browser submits directly
+            submitFromBrowser(res.filmId, res.csrf, res.date, res.rating);
+            msg.style.color = '#00c030';
+            msg.textContent = '✓ Envoyé vers Letterboxd !';
+            setTimeout(function () { overlay.remove(); }, 2000);
           } else {
             msg.style.color = '#f55';
             msg.textContent = res.error || 'Erreur.';
@@ -574,6 +580,27 @@
     });
     circle.textContent = (name || '?').charAt(0).toUpperCase();
     return circle;
+  }
+
+  // ── Soumission directe depuis le navigateur (bypass Cloudflare côté serveur) ──
+  // Le serveur ne peut pas POST à letterboxd.com (Cloudflare), mais le navigateur
+  // a les bons cookies et le bon IP — on soumet via fetch no-cors.
+  function submitFromBrowser(filmId, csrf, date, rating) {
+    var body = new URLSearchParams();
+    body.append('__csrf',         csrf || '');
+    body.append('filmId',         String(filmId));
+    body.append('specifiedDate',  'on');
+    body.append('viewingDateStr', date);
+    body.append('rating',         String(rating));
+
+    // no-cors : le navigateur envoie sa session LB (cookies inclus), on ne lit pas la réponse
+    fetch('https://letterboxd.com/s/save-diary-entry', {
+      method:      'POST',
+      mode:        'no-cors',
+      credentials: 'include',
+      headers:     { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body:        body.toString(),
+    }).catch(function () {});
   }
 
   function esc(s) {

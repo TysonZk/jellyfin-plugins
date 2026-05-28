@@ -212,8 +212,28 @@ public sealed class LetterboxdController : ControllerBase
         var (ok, err) = await _lb.LogFilmAsync(filmId, req.Rating, session.CookieString)
             .ConfigureAwait(false);
 
-        if (!ok) return BadRequest(new { error = err });
+        if (ok) return Ok(new { success = true });
 
-        return Ok(new { success = true });
+        // Cloudflare blocks server-side POST — return data for browser-side submission
+        if (err == "CLOUDFLARE_BLOCKED_POST")
+        {
+            var csrf   = CsrfFromCookies(session.CookieString);
+            var today  = DateTime.Today.ToString("yyyy-MM-dd");
+            var rating = Math.Clamp(req.Rating * 2, 0, 10);
+            return Ok(new { action = "client_submit", filmId, csrf, date = today, rating });
+        }
+
+        return BadRequest(new { error = err });
+    }
+
+    private static string CsrfFromCookies(string cookieStr)
+    {
+        foreach (var part in cookieStr.Split(';'))
+        {
+            var kv = part.Trim().Split('=', 2);
+            if (kv.Length == 2 && kv[0].Trim().Equals("com.xk72.webparts.csrf", StringComparison.OrdinalIgnoreCase))
+                return kv[1].Trim();
+        }
+        return string.Empty;
     }
 }
