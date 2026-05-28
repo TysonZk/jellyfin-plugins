@@ -471,14 +471,14 @@
             msg.textContent = '✓ Enregistré sur Letterboxd !';
             setTimeout(function () { overlay.remove(); }, 1800);
           } else if (res.action === 'client_submit') {
-            // Server POST blocked by Cloudflare — browser submits directly via form
+            // Fallback cookie : le navigateur soumet le formulaire directement
             submitFromBrowser(res.filmId, res.csrf, res.date, res.rating);
             msg.style.color = '#00c030';
             var lbUrl = res.lbSlug
               ? 'https://letterboxd.com/film/' + res.lbSlug + '/'
               : 'https://letterboxd.com/';
             msg.innerHTML = '✓ Envoyé ! <a href="' + lbUrl + '" target="_blank" ' +
-              'style="color:#00c030;font-size:12px;">Vérifier sur Letterboxd</a>';
+              'style="color:#aaa;font-size:11px;">Vérifier ↗</a>';
             setTimeout(function () { overlay.remove(); }, 3000);
           } else {
             msg.style.color = '#f55';
