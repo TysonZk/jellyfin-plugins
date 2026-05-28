@@ -210,11 +210,14 @@ public sealed class LetterboxdController : ControllerBase
             return NotFound(new { error = "Film introuvable sur Letterboxd" });
 
         // Server-side POST is always blocked by Cloudflare — let the browser submit directly.
-        // The browser has the right IP + cf_clearance cookies that Cloudflare accepts.
-        var csrf   = CsrfFromCookies(session.CookieString);
-        var today  = DateTime.Today.ToString("yyyy-MM-dd");
-        var rating = Math.Clamp(req.Rating * 2, 0, 10);
-        return Ok(new { action = "client_submit", filmId, csrf, date = today, rating });
+        var csrf      = CsrfFromCookies(session.CookieString);
+        var today     = DateTime.Today.ToString("yyyy-MM-dd");
+        var rating    = Math.Clamp(req.Rating * 2, 0, 10);
+        // Construct best-guess LB slug so the widget can show a "verify" link
+        var titleSlug = string.IsNullOrEmpty(req.Title) ? filmId
+            : System.Text.RegularExpressions.Regex.Replace(req.Title.ToLowerInvariant(), @"[^a-z0-9]+", "-").Trim('-');
+        var lbSlug    = req.Year.HasValue ? $"{titleSlug}-{req.Year}" : titleSlug;
+        return Ok(new { action = "client_submit", filmId, csrf, date = today, rating, lbSlug });
     }
 
     private static string CsrfFromCookies(string cookieStr)

@@ -471,11 +471,15 @@
             msg.textContent = '✓ Enregistré sur Letterboxd !';
             setTimeout(function () { overlay.remove(); }, 1800);
           } else if (res.action === 'client_submit') {
-            // Server POST blocked by Cloudflare — browser submits directly
+            // Server POST blocked by Cloudflare — browser submits directly via form
             submitFromBrowser(res.filmId, res.csrf, res.date, res.rating);
             msg.style.color = '#00c030';
-            msg.textContent = '✓ Envoyé vers Letterboxd !';
-            setTimeout(function () { overlay.remove(); }, 2000);
+            var lbUrl = res.lbSlug
+              ? 'https://letterboxd.com/film/' + res.lbSlug + '/'
+              : 'https://letterboxd.com/';
+            msg.innerHTML = '✓ Envoyé ! <a href="' + lbUrl + '" target="_blank" ' +
+              'style="color:#00c030;font-size:12px;">Vérifier sur Letterboxd</a>';
+            setTimeout(function () { overlay.remove(); }, 3000);
           } else {
             msg.style.color = '#f55';
             msg.textContent = res.error || 'Erreur.';
@@ -582,25 +586,46 @@
     return circle;
   }
 
-  // ── Soumission directe depuis le navigateur (bypass Cloudflare côté serveur) ──
-  // Le serveur ne peut pas POST à letterboxd.com (Cloudflare), mais le navigateur
-  // a les bons cookies et le bon IP — on soumet via fetch no-cors.
+  // ── Soumission directe depuis le navigateur via form submit ─────────────────
+  // fetch no-cors ne pas envoyer les cookies SameSite=Lax sur un POST cross-site.
+  // Un form submit vers une nouvelle fenêtre compte comme navigation top-level
+  // → cookies Lax envoyés → Cloudflare et session Letterboxd OK.
   function submitFromBrowser(filmId, csrf, date, rating) {
-    var body = new URLSearchParams();
-    body.append('__csrf',         csrf || '');
-    body.append('filmId',         String(filmId));
-    body.append('specifiedDate',  'on');
-    body.append('viewingDateStr', date);
-    body.append('rating',         String(rating));
+    var form = document.createElement('form');
+    form.method = 'POST';
+    form.action = 'https://letterboxd.com/s/save-diary-entry';
+    form.style.display = 'none';
 
-    // no-cors : le navigateur envoie sa session LB (cookies inclus), on ne lit pas la réponse
-    fetch('https://letterboxd.com/s/save-diary-entry', {
-      method:      'POST',
-      mode:        'no-cors',
-      credentials: 'include',
-      headers:     { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body:        body.toString(),
-    }).catch(function () {});
+    var fields = {
+      '__csrf':         csrf || '',
+      'filmId':         String(filmId),
+      'specifiedDate':  'on',
+      'viewingDateStr': date,
+      'rating':         String(rating),
+    };
+    Object.keys(fields).forEach(function(k) {
+      var inp = document.createElement('input');
+      inp.type  = 'hidden';
+      inp.name  = k;
+      inp.value = fields[k];
+      form.appendChild(inp);
+    });
+
+    // Ouvre une mini-fenêtre (navigation top-level → cookies LB inclus)
+    var winRef = null;
+    try {
+      winRef = window.open('about:blank', '_lb_diary_submit',
+        'width=1,height=1,left=0,top=0,menubar=no,toolbar=no,status=no,scrollbars=no');
+      form.target = '_lb_diary_submit';
+    } catch (e) {
+      form.target = '_blank';
+    }
+
+    document.body.appendChild(form);
+    form.submit();
+    document.body.removeChild(form);
+
+    if (winRef) setTimeout(function () { try { winRef.close(); } catch (e) {} }, 1500);
   }
 
   function esc(s) {
