@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace Jellyfin.Plugin.Letterboxd.Controllers;
 
+
 // ── Request bodies ────────────────────────────────────────────────────────────
 
 /// <summary>Corps de la requête de connexion Letterboxd.</summary>
@@ -51,9 +52,14 @@ public sealed class LogRequest
 public sealed class LetterboxdController : ControllerBase
 {
     private readonly LetterboxdService _lb;
+    private readonly PendingRatingStore _pending;
 
     /// <summary>Initializes a new instance of the <see cref="LetterboxdController"/> class.</summary>
-    public LetterboxdController(LetterboxdService lb) => _lb = lb;
+    public LetterboxdController(LetterboxdService lb, PendingRatingStore pending)
+    {
+        _lb      = lb;
+        _pending = pending;
+    }
 
     // ── widget.js ─────────────────────────────────────────────────────────────
 
@@ -134,6 +140,38 @@ public sealed class LetterboxdController : ControllerBase
             return BadRequest(new { error = "userId requis" });
 
         _lb.DeleteSession(userId);
+        return Ok(new { success = true });
+    }
+
+    // ── Notation en attente (polling côté client) ─────────────────────────────
+
+    /// <summary>Retourne si un film est en attente de notation pour cet utilisateur.</summary>
+    [HttpGet("pending")]
+    public IActionResult GetPending([FromQuery] string userId)
+    {
+        if (string.IsNullOrEmpty(userId))
+            return BadRequest(new { error = "userId requis" });
+
+        if (_lb.GetSession(userId) is null)
+            return Ok(new { hasPending = false });
+
+        var r = _pending.Get(userId);
+        if (r is null)
+            return Ok(new { hasPending = false });
+
+        return Ok(new
+        {
+            hasPending = true,
+            movie = new { r.ItemId, r.Title, r.Year, r.ImdbId, r.TmdbId },
+        });
+    }
+
+    /// <summary>Efface la notation en attente (après affichage de la popup).</summary>
+    [HttpDelete("pending")]
+    public IActionResult ClearPending([FromQuery] string userId)
+    {
+        if (!string.IsNullOrEmpty(userId))
+            _pending.Clear(userId);
         return Ok(new { success = true });
     }
 

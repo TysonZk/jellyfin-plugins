@@ -272,54 +272,44 @@
     if (m) m.remove();
   }
 
-  // ── Détection fin de film ────────────────────────────────────────────────────
-  window.fetch = function (url, options) {
-    var p = _origFetch(url, options);
-    try {
-      var urlStr = typeof url === 'string' ? url : (url && url.url) || '';
-      var method = (options && options.method || '').toUpperCase();
-      // PlayedItems peut être POST sans body (méthode par défaut POST en Jellyfin)
-      if (urlStr && (method === 'POST' || method === '')) {
-        var m = urlStr.match(/\/Users\/([^/?#]+)\/PlayedItems\/([^/?#]+)/);
-        if (m) {
-          (function (uid, itemId) {
-            p.then(function () { onItemPlayed(uid, itemId); }).catch(function () {});
-          })(m[1], m[2]);
-        }
-      }
-    } catch (_) {}
-    return p;
-  };
+  // ── Détection fin de film — polling serveur (fiable) ─────────────────────────
+  // Le serveur écoute UserDataSaved et stocke les films à noter.
+  // On poll toutes les 10s pour afficher la popup dès que le film est marqué vu.
+  function startPendingPoll() {
+    var auth = getAuth();
+    if (!auth) { setTimeout(startPendingPoll, 2000); return; }
 
-  function onItemPlayed(userId, itemId) {
-    // Utilise ApiClient natif (auth incluse) ou fetch + token manuel
-    function fetchItem() {
-      if (window.ApiClient && typeof window.ApiClient.getItem === 'function') {
-        return window.ApiClient.getItem(userId, itemId);
-      }
-      var auth = getAuth();
-      var headers = {};
-      if (auth && auth.token) {
-        headers['Authorization'] = 'MediaBrowser Token="' + auth.token + '"';
-      }
-      return _origFetch('/Items/' + itemId + '?userId=' + userId, { headers: headers })
-        .then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); });
+    function poll() {
+      _origFetch('/JfLetterboxd/pending?userId=' + auth.userId)
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          if (!data.hasPending) return;
+          if (document.getElementById(MODAL_ID)) return; // popup déjà ouverte
+
+          // Effacer immédiatement pour ne pas re-déclencher
+          _origFetch('/JfLetterboxd/pending?userId=' + auth.userId, { method: 'DELETE' })
+            .catch(function () {});
+
+          _origFetch('/JfLetterboxd/status?userId=' + auth.userId)
+            .then(function (r) { return r.json(); })
+            .then(function (s) {
+              var m = data.movie;
+              showRatingModal(auth.userId, {
+                Name:           m.title,
+                Type:           'Movie',
+                ProductionYear: m.year,
+                ProviderIds:    { Imdb: m.imdbId || '', Tmdb: m.tmdbId || '' },
+              }, s.connected, s.username || '');
+            })
+            .catch(function () {});
+        })
+        .catch(function () {});
     }
 
-    fetchItem()
-      .then(function (item) {
-        if (!item || item.Type !== 'Movie') return;
-        _origFetch('/JfLetterboxd/status?userId=' + userId)
-          .then(function (r) { return r.json(); })
-          .then(function (s) {
-            setTimeout(function () {
-              showRatingModal(userId, item, s.connected, s.username || '');
-            }, 1200);
-          })
-          .catch(function () {});
-      })
-      .catch(function () {});
+    poll();
+    setInterval(poll, 10000);
   }
+  startPendingPoll();
 
   // ── Modale de notation ───────────────────────────────────────────────────────
   function showRatingModal(userId, item, connected, lbUser) {

@@ -12,6 +12,8 @@ public sealed class PluginServiceRegistrator : IPluginServiceRegistrator
     public void RegisterServices(IServiceCollection serviceCollection, IServerApplicationHost applicationHost)
     {
         serviceCollection.AddSingleton<LetterboxdService>();
+        serviceCollection.AddSingleton<PendingRatingStore>();
         serviceCollection.AddHostedService<IndexPatcher>();
+        serviceCollection.AddHostedService<PlaybackWatcher>();
     }
 }
