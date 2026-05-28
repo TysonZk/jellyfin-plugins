@@ -276,7 +276,7 @@ public sealed class LetterboxdService
     /// rating: 0 = pas de note, 1-5 étoiles.
     /// </summary>
     public async Task<(bool Success, string? Error)> LogFilmAsync(
-        string filmLid, int rating, UserSession session)
+        string filmLid, double rating, UserSession session)
     {
         if (!session.HasApiToken)
             return (false, "SESSION_NO_API");
@@ -294,7 +294,7 @@ public sealed class LetterboxdService
             ["like"]          = false,
             ["tags"]          = Array.Empty<string>(),
         };
-        if (rating > 0) bodyObj["rating"] = (double)Math.Clamp(rating, 1, 5);
+        if (rating > 0) bodyObj["rating"] = Math.Clamp(rating, 0.5, 5.0);
 
         var body = JsonSerializer.Serialize(bodyObj);
         try

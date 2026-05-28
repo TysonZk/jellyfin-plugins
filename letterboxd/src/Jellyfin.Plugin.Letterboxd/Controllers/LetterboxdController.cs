@@ -33,8 +33,8 @@ public sealed class LogRequest
     public string? Title   { get; set; }
     /// <summary>Année de production (fallback).</summary>
     public int?    Year    { get; set; }
-    /// <summary>Note de 0 (pas de note) à 5 étoiles.</summary>
-    public int     Rating  { get; set; }
+    /// <summary>Note de 0 (pas de note) à 5 étoiles (demi-étoiles acceptées : 0.5, 1, 1.5…).</summary>
+    public double  Rating  { get; set; }
 }
 
 /// <summary>Endpoints du plugin Letterboxd.</summary>
@@ -171,7 +171,7 @@ public sealed class LetterboxdController : ControllerBase
         // Session cookie uniquement : le navigateur soumet le formulaire directement
         var csrf  = CsrfFromCookies(session.CookieString ?? string.Empty);
         var today = System.DateTime.Today.ToString("yyyy-MM-dd");
-        var ratingInternal = System.Math.Clamp(req.Rating * 2, 0, 10);
+        var ratingInternal = (int)System.Math.Clamp(System.Math.Round(req.Rating * 2), 0, 10);
         var titleSlug = string.IsNullOrEmpty(req.Title) ? filmLid
             : System.Text.RegularExpressions.Regex.Replace(req.Title.ToLowerInvariant(), @"[^a-z0-9]+", "-").Trim('-');
         var lbSlug = req.Year.HasValue ? $"{titleSlug}-{req.Year}" : titleSlug;

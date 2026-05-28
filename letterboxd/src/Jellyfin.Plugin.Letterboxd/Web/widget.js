@@ -69,15 +69,13 @@
     overlay.addEventListener('click', function (e) { if (e.target === overlay) closeModal(); });
 
     var card = mkEl('div', {
-      style: 'background:#1a1a1a;border-radius:12px;padding:28px 32px;width:360px;' +
+      style: 'background:#14181c;border-radius:12px;padding:24px 28px;width:360px;' +
              'max-width:92vw;position:relative;color:#fff;font-family:inherit;' +
-             'box-shadow:0 24px 64px rgba(0,0,0,.9);',
+             'box-shadow:0 24px 64px rgba(0,0,0,.9);border:1px solid #2c3440;',
     });
 
-    var hdr = mkEl('div', { style: 'display:flex;align-items:center;gap:10px;margin-bottom:20px;' });
-    hdr.innerHTML =
-      lbLogo(28) +
-      '<span style="font-size:18px;font-weight:700;">Letterboxd</span>';
+    var hdr = mkEl('div', { style: 'margin-bottom:20px;' });
+    hdr.innerHTML = lbLogoFull(26);
 
     var closeBtn = mkEl('button', {
       style: 'position:absolute;top:14px;right:16px;background:none;border:none;' +
@@ -110,7 +108,7 @@
       infoDiv.appendChild(avatarEl(avatarUrl, lbUser, 44));
 
       var nameCol = mkEl('div');
-      var label = mkEl('div', { style: 'font-size:11px;color:#666;text-transform:uppercase;letter-spacing:.05em;' });
+      var label = mkEl('div', { style: 'font-size:11px;color:#9ab;text-transform:uppercase;letter-spacing:.05em;' });
       label.textContent = 'Compte connecté';
       var name = mkEl('div', { style: 'font-size:16px;font-weight:600;color:#fff;margin-top:2px;' });
       name.textContent = lbUser;
@@ -118,7 +116,7 @@
       nameCol.appendChild(name);
       infoDiv.appendChild(nameCol);
 
-      var hint = mkEl('p', { style: 'font-size:13px;color:#666;margin:0 0 20px;line-height:1.5;' });
+      var hint = mkEl('p', { style: 'font-size:13px;color:#9ab;margin:0 0 20px;line-height:1.5;' });
       hint.textContent = 'Une fenêtre de notation apparaîtra automatiquement à la fin de chaque film.';
 
       var discBtn = mkEl('button', { style: dangerBtn() });
@@ -308,24 +306,24 @@
 
     var overlay = mkEl('div', {
       id: MODAL_ID,
-      style: 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.85);' +
+      style: 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.88);' +
              'display:flex;align-items:center;justify-content:center;font-family:inherit;',
     });
     overlay.addEventListener('click', function (e) { if (e.target === overlay) overlay.remove(); });
 
     var card = mkEl('div', {
-      style: 'background:#1a1a1a;border-radius:14px;overflow:hidden;' +
-             'max-width:420px;width:92%;' +
-             'box-shadow:0 24px 72px rgba(0,0,0,.95);position:relative;color:#fff;',
+      style: 'background:#14181c;border-radius:12px;overflow:hidden;' +
+             'max-width:400px;width:92%;' +
+             'box-shadow:0 24px 72px rgba(0,0,0,.95);position:relative;color:#fff;' +
+             'border:1px solid #2c3440;',
     });
 
-    // ── Header bande verte ────────────────────────────────────────────────────
+    // ── Header Letterboxd ─────────────────────────────────────────────────────
     var header = mkEl('div', {
-      style: 'background:#00c030;padding:12px 16px;display:flex;align-items:center;gap:8px;',
+      style: 'background:#14181c;padding:14px 16px 10px;display:flex;align-items:center;' +
+             'gap:10px;border-bottom:1px solid #2c3440;',
     });
-    header.innerHTML =
-      lbLogo(22) +
-      '<span style="font-size:14px;font-weight:700;color:#fff;letter-spacing:.02em;">Letterboxd</span>';
+    header.innerHTML = lbLogoFull(28);
 
     var xBtn = mkEl('button', {
       style: 'position:absolute;top:10px;right:12px;background:none;border:none;' +
@@ -338,10 +336,10 @@
     xBtn.onmouseleave = function () { xBtn.style.background = 'none'; };
 
     // ── Corps ─────────────────────────────────────────────────────────────────
-    var body = mkEl('div', { style: 'padding:20px 24px 24px;' });
+    var body = mkEl('div', { style: 'padding:16px 20px 20px;background:#14181c;' });
 
     // Poster + info
-    var movieRow = mkEl('div', { style: 'display:flex;gap:14px;margin-bottom:18px;align-items:flex-start;' });
+    var movieRow = mkEl('div', { style: 'display:flex;gap:12px;margin-bottom:14px;align-items:flex-start;' });
 
     if (posterUrl) {
       var posterImg = mkEl('img', {});
@@ -356,11 +354,11 @@
 
     var movieInfo = mkEl('div', { style: 'flex:1;min-width:0;padding-top:2px;' });
     var movieTitle = mkEl('div', {
-      style: 'font-size:16px;font-weight:700;color:#fff;line-height:1.3;' +
+      style: 'font-size:15px;font-weight:700;color:#fff;line-height:1.3;' +
              'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;',
     });
     movieTitle.textContent = item.title;
-    var movieYear = mkEl('div', { style: 'font-size:13px;color:#666;margin-top:3px;' });
+    var movieYear = mkEl('div', { style: 'font-size:12px;color:#9ab;margin-top:3px;' });
     movieYear.textContent = item.year ? String(item.year) : '';
     movieInfo.appendChild(movieTitle);
     movieInfo.appendChild(movieYear);
@@ -396,57 +394,108 @@
   function buildStarRatingUI(body, overlay, userId, lbUser, lbAvatarUrl, item) {
     // Qui est connecté
     var whoRow = mkEl('div', {
-      style: 'display:flex;align-items:center;gap:8px;padding:10px 12px;' +
-             'background:#111;border-radius:8px;margin-bottom:16px;',
+      style: 'display:flex;align-items:center;gap:8px;padding:8px 12px;' +
+             'background:#1e2530;border-radius:8px;margin-bottom:14px;',
     });
-    whoRow.appendChild(avatarEl(lbAvatarUrl, lbUser, 28));
-    var whoLabel = mkEl('span', { style: 'font-size:13px;color:#aaa;' });
-    whoLabel.innerHTML = 'Connecté en tant que <b style="color:#fff;">' + esc(lbUser) + '</b>';
+    whoRow.appendChild(avatarEl(lbAvatarUrl, lbUser, 26));
+    var whoLabel = mkEl('span', { style: 'font-size:12px;color:#9ab;' });
+    whoLabel.innerHTML = 'Connecté · <b style="color:#fff;">' + esc(lbUser) + '</b>';
     whoRow.appendChild(whoLabel);
     body.appendChild(whoRow);
 
-    // Étoiles
+    // ── Demi-étoiles (0.5 à 5.0 comme Letterboxd) ────────────────────────────
     var cur = 0;
+    var fgEls = []; // foreground clip spans (one per star position)
+
     var starsRow = mkEl('div', {
-      style: 'display:flex;justify-content:center;gap:4px;cursor:pointer;user-select:none;margin-bottom:6px;',
+      style: 'display:flex;justify-content:center;gap:2px;user-select:none;margin-bottom:4px;',
     });
-    var starEls = [];
+
     for (var i = 1; i <= 5; i++) {
-      (function (v) {
-        var s = mkEl('span', { style: 'font-size:40px;color:#2a2a2a;transition:color .08s;line-height:1;' });
-        s.textContent = '★';
-        s.addEventListener('mouseenter', function () { paint(v); });
-        s.addEventListener('mouseleave', function () { paint(cur); });
-        s.addEventListener('click', function () {
-          cur = (cur === v) ? 0 : v;
-          paint(cur);
-          lbl.textContent = cur ? cur + (cur > 1 ? ' étoiles' : ' étoile') : 'Pas de note';
+      (function (pos) {
+        // Container pour une position d'étoile
+        var container = mkEl('span', {
+          style: 'position:relative;display:inline-block;width:40px;height:40px;cursor:pointer;',
         });
-        starsRow.appendChild(s);
-        starEls.push(s);
+
+        // Étoile background (gris)
+        var bgStar = mkEl('span', {
+          style: 'position:absolute;inset:0;font-size:40px;line-height:40px;color:#2e3d4f;' +
+                 'text-align:center;pointer-events:none;',
+        });
+        bgStar.textContent = '★';
+
+        // Étoile foreground (orange LB, clippée selon remplissage)
+        var fgClip = mkEl('span', {
+          style: 'position:absolute;inset:0;overflow:hidden;width:0;pointer-events:none;',
+        });
+        var fgStar = mkEl('span', {
+          style: 'position:absolute;inset:0;font-size:40px;line-height:40px;color:#ef845d;' +
+                 'text-align:center;white-space:nowrap;',
+        });
+        fgStar.textContent = '★';
+        fgClip.appendChild(fgStar);
+
+        container.appendChild(bgStar);
+        container.appendChild(fgClip);
+        fgEls.push(fgClip);
+
+        container.addEventListener('mousemove', function (e) {
+          var rect = container.getBoundingClientRect();
+          var half = (e.clientX - rect.left) < (rect.width / 2);
+          paint(half ? pos - 0.5 : pos);
+          lbl.textContent = formatRating(half ? pos - 0.5 : pos);
+        });
+        container.addEventListener('mouseleave', function () {
+          paint(cur);
+          lbl.textContent = formatRating(cur);
+        });
+        container.addEventListener('click', function (e) {
+          var rect = container.getBoundingClientRect();
+          var half = (e.clientX - rect.left) < (rect.width / 2);
+          var clicked = half ? pos - 0.5 : pos;
+          cur = (cur === clicked) ? 0 : clicked;
+          paint(cur);
+          lbl.textContent = formatRating(cur);
+        });
+
+        starsRow.appendChild(container);
       })(i);
     }
 
     function paint(n) {
-      starEls.forEach(function (s, i) { s.style.color = i < n ? '#f5c518' : '#2a2a2a'; });
+      fgEls.forEach(function (fg, idx) {
+        var full = n - idx; // combien de cette position est remplie
+        if (full >= 1)      fg.style.width = '100%';
+        else if (full >= 0.5) fg.style.width = '50%';
+        else                  fg.style.width = '0';
+      });
     }
 
-    var lbl = mkEl('p', { style: 'color:#555;font-size:13px;margin:0 0 18px;text-align:center;' });
+    function formatRating(n) {
+      if (!n) return 'Pas de note';
+      var stars = '';
+      for (var k = 0; k < Math.floor(n); k++) stars += '★';
+      if (n % 1 >= 0.5) stars += '½';
+      return stars + ' · ' + n + (n > 1 ? ' étoiles' : ' étoile');
+    }
+
+    var lbl = mkEl('p', { style: 'color:#9ab;font-size:12px;margin:2px 0 14px;text-align:center;min-height:16px;' });
     lbl.textContent = 'Pas de note';
     body.appendChild(starsRow);
     body.appendChild(lbl);
 
     var row = mkEl('div', { style: 'display:flex;gap:8px;' });
-    var logBtn = mkEl('button', { style: primaryBtn() + 'flex:1;padding:11px 0;font-size:15px;' });
+    var logBtn = mkEl('button', { style: lbBtn() + 'flex:1;' });
     logBtn.textContent = 'Enregistrer';
     var skipBtn = mkEl('button', {
-      style: 'background:#222;color:#888;border:none;border-radius:8px;padding:11px 18px;' +
+      style: 'background:#2c3440;color:#9ab;border:none;border-radius:8px;padding:11px 18px;' +
              'cursor:pointer;font-size:14px;flex-shrink:0;',
     });
     skipBtn.textContent = 'Passer';
     skipBtn.onclick = function () { overlay.remove(); };
 
-    var msg = mkEl('p', { style: 'font-size:13px;margin:12px 0 0;min-height:18px;text-align:center;' });
+    var msg = mkEl('p', { style: 'font-size:12px;margin:10px 0 0;min-height:16px;text-align:center;' });
 
     logBtn.onclick = function () {
       logBtn.disabled = true;
@@ -547,20 +596,35 @@
   }
 
   function primaryBtn() {
-    return 'background:#00c030;color:#fff;border:none;border-radius:8px;' +
+    return 'background:#00c030;color:#fff;border:none;border-radius:6px;' +
            'padding:10px 0;font-size:14px;font-weight:600;cursor:pointer;width:100%;';
   }
 
+  function lbBtn() {
+    return 'background:#00e054;color:#14181c;border:none;border-radius:6px;' +
+           'padding:11px 0;font-size:14px;font-weight:700;cursor:pointer;width:100%;';
+  }
+
   function dangerBtn() {
-    return 'background:#c0392b;color:#fff;border:none;border-radius:7px;' +
+    return 'background:#c0392b;color:#fff;border:none;border-radius:6px;' +
            'padding:9px 20px;font-size:14px;cursor:pointer;';
   }
 
-  function lbLogo(size) {
-    return '<svg xmlns="http://www.w3.org/2000/svg" width="' + size + '" height="' + size + '" viewBox="0 0 100 100">' +
-      '<circle cx="50" cy="50" r="50" fill="#fff" fill-opacity=".2"/>' +
-      '<text x="50" y="67" text-anchor="middle" font-family="serif" font-size="54" font-weight="bold" fill="white">L</text>' +
+  // Logo Letterboxd — trois cercles superposés (marque officielle)
+  function lbLogoFull(h) {
+    var r = h / 2;
+    var gap = r * 0.6;
+    var w = r * 2 + gap * 2;
+    return '<svg xmlns="http://www.w3.org/2000/svg" width="' + (w + 90) + '" height="' + h + '" viewBox="0 0 ' + (w + 90) + ' ' + h + '">' +
+      '<circle cx="' + r + '" cy="' + r + '" r="' + r + '" fill="#00e054"/>' +
+      '<circle cx="' + (r + gap) + '" cy="' + r + '" r="' + r + '" fill="#40bcf4"/>' +
+      '<circle cx="' + (r + gap * 2) + '" cy="' + r + '" r="' + r + '" fill="#ec9c52"/>' +
+      '<text x="' + (r * 2 + gap * 2 + 10) + '" y="' + (r + r * 0.38) + '" font-family="Georgia,serif" font-size="' + (r * 1.2) + '" font-weight="bold" fill="#fff" letter-spacing="-0.5">letterboxd</text>' +
     '</svg>';
+  }
+
+  function lbLogo(size) {
+    return lbLogoFull(size);
   }
 
   function avatarEl(url, name, size) {
