@@ -70,7 +70,7 @@ jobs:
       - name: Commit manifest
         run: |
           git config user.name  "TysonZk"
-          git config user.email "nolan.dessirier@jeff-de-bruges.com"
+          git config user.email "TysonZk@users.noreply.github.com"
           # Récupérer le manifest le plus récent de main avant de commiter
           git fetch origin main
           git checkout origin/main -- manifest.json
